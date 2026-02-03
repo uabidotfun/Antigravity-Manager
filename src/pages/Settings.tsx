@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Github, User, MessageCircle, ExternalLink, RefreshCw, Sparkles, Heart, Coffee } from 'lucide-react';
+import { Save, Github, User, MessageCircle, ExternalLink, RefreshCw, Heart, Coffee } from 'lucide-react';
 import { request as invoke } from '../utils/request';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useConfigStore } from '../stores/useConfigStore';
@@ -15,6 +15,7 @@ import { useDebugConsole } from '../stores/useDebugConsole';
 import { useTranslation } from 'react-i18next';
 import { isTauri } from '../utils/env';
 import DebugConsole from '../components/debug/DebugConsole';
+import ProxyPoolSettings from '../components/settings/ProxyPoolSettings';
 
 
 function Settings() {
@@ -43,7 +44,14 @@ function Settings() {
             debug_logging: {
                 enabled: false,
                 output_dir: undefined
-            } as { enabled: boolean; output_dir?: string }
+            } as { enabled: boolean; output_dir?: string },
+            proxy_pool: {
+                enabled: false,
+                proxies: [],
+                health_check_interval: 300,
+                auto_failover: true,
+                strategy: 'priority'
+            }
         },
         scheduled_warmup: {
             enabled: false,
@@ -60,7 +68,8 @@ function Settings() {
         circuit_breaker: {
             enabled: false,
             backoff_steps: [30, 60, 120, 300, 600]
-        }
+        },
+
     });
 
     // Dialog state
@@ -951,74 +960,43 @@ function Settings() {
 
                     {/* 代理设置 */}
                     {activeTab === 'proxy' && (
-                        <div className="space-y-6">
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-base-content">{t('settings.proxy.title')}</h2>
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <ProxyPoolSettings
+                                config={formData.proxy?.proxy_pool || {
+                                    enabled: false,
+                                    proxies: [],
+                                    health_check_interval: 300,
+                                    auto_failover: true,
+                                    strategy: 'priority'
+                                }}
+                                onChange={(newConfig, silent = false) => {
+                                    const updatedFormData = {
+                                        ...formData,
+                                        proxy: {
+                                            ...formData.proxy,
+                                            proxy_pool: newConfig
+                                        }
+                                    };
+                                    setFormData(updatedFormData);
 
-                            <div className="p-4 bg-gray-50 dark:bg-base-200 rounded-lg border border-gray-100 dark:border-base-300">
-                                <h3 className="text-md font-semibold text-gray-900 dark:text-base-content mb-3 flex items-center gap-2">
-                                    <Sparkles size={18} className="text-blue-500" />
-                                    {t('proxy.config.upstream_proxy.title')}
-                                </h3>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                                    {t('proxy.config.upstream_proxy.desc')}
-                                </p>
+                                    // [FIX] Silent updates (like health polling) should NOT trigger saveConfig
+                                    // to prevent race conditions where old memory state rolls back new manual changes
+                                    if (silent) {
+                                        console.log('Proxy status sync (silent)');
+                                        return;
+                                    }
 
-                                <div className="space-y-4">
-                                    <div className="flex items-center">
-                                        <label className="flex items-center cursor-pointer gap-3">
-                                            <div className="relative">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only"
-                                                    checked={formData.proxy?.upstream_proxy?.enabled || false}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        proxy: {
-                                                            ...formData.proxy,
-                                                            upstream_proxy: {
-                                                                ...formData.proxy.upstream_proxy,
-                                                                enabled: e.target.checked
-                                                            }
-                                                        }
-                                                    })}
-                                                />
-                                                <div className={`block w-14 h-8 rounded-full transition-colors ${formData.proxy?.upstream_proxy?.enabled ? 'bg-blue-500' : 'bg-gray-300 dark:bg-base-300'}`}></div>
-                                                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${formData.proxy?.upstream_proxy?.enabled ? 'transform translate-x-6' : ''}`}></div>
-                                            </div>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-base-content">
-                                                {t('proxy.config.upstream_proxy.enable')}
-                                            </span>
-                                        </label>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            {t('proxy.config.upstream_proxy.url')}
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={formData.proxy?.upstream_proxy?.url || ''}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                proxy: {
-                                                    ...formData.proxy,
-                                                    upstream_proxy: {
-                                                        ...formData.proxy.upstream_proxy,
-                                                        url: e.target.value
-                                                    }
-                                                }
-                                            })}
-                                            placeholder={t('proxy.config.upstream_proxy.url_placeholder')}
-                                            className="w-full px-4 py-4 border border-gray-200 dark:border-base-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-base-content bg-gray-50 dark:bg-base-200"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                            {t('proxy.config.upstream_proxy.tip')}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
+                                    // Hot reload: save immediately for manual changes
+                                    saveConfig({ ...updatedFormData, auto_refresh: true })
+                                        .then(() => {
+                                            console.log('Proxy config saved');
+                                        })
+                                        .catch(err => console.error('Save failed:', err));
+                                }}
+                            />
                         </div>
                     )}
+
                     {activeTab === 'about' && (
                         <div className="flex flex-col h-full animate-in fade-in duration-500">
                             <div className="flex-1 flex flex-col justify-center items-center space-y-8">
@@ -1157,8 +1135,9 @@ function Settings() {
                                 {t('settings.about.copyright')}
                             </div>
                         </div>
-                    )}
-                </div>
+                    )
+                    }
+                </div >
 
                 <ModalDialog
                     isOpen={isClearLogsOpen}
@@ -1261,7 +1240,7 @@ function Settings() {
                     </div>
                     <div className="modal-backdrop bg-black/60 backdrop-blur-md fixed inset-0 z-[-1]" onClick={() => setIsSupportModalOpen(false)}></div>
                 </div>
-            </div>
+            </div >
         </div >
     );
 }

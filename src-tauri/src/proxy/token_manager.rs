@@ -809,7 +809,7 @@ impl TokenManager {
         force_rotate: bool,
         session_id: Option<&str>,
         target_model: &str,
-    ) -> Result<(String, String, String, u64), String> {
+    ) -> Result<(String, String, String, String, u64), String> {
         // [FIX] 检查并处理待重新加载的账号（配额保护同步）
         let pending_accounts = crate::proxy::server::take_pending_reload_accounts();
         for account_id in pending_accounts {
@@ -845,7 +845,7 @@ impl TokenManager {
         force_rotate: bool,
         session_id: Option<&str>,
         target_model: &str,
-    ) -> Result<(String, String, String, u64), String> {
+    ) -> Result<(String, String, String, String, u64), String> {
         let mut tokens_snapshot: Vec<ProxyToken> =
             self.tokens.iter().map(|e| e.value().clone()).collect();
         let total = tokens_snapshot.len();
@@ -967,7 +967,7 @@ impl TokenManager {
                     let now = chrono::Utc::now().timestamp();
                     if now >= token.timestamp - 300 {
                         tracing::debug!("账号 {} 的 token 即将过期，正在刷新...", token.email);
-                        match crate::modules::oauth::refresh_access_token(&token.refresh_token)
+                        match crate::modules::oauth::refresh_access_token(&token.refresh_token, Some(&token.account_id))
                             .await
                         {
                             Ok(token_response) => {
@@ -1009,7 +1009,7 @@ impl TokenManager {
                         }
                     };
 
-                    return Ok((token.access_token, project_id, token.email, 0));
+                    return Ok((token.access_token, project_id, token.email, token.account_id, 0));
                 } else {
                     if is_rate_limited {
                         tracing::warn!("🔒 [FIX #820] Preferred account {} is rate-limited, falling back to round-robin", preferred_token.email);
@@ -1272,7 +1272,7 @@ impl TokenManager {
                 tracing::debug!("账号 {} 的 token 即将过期，正在刷新...", token.email);
 
                 // 调用 OAuth 刷新 token
-                match crate::modules::oauth::refresh_access_token(&token.refresh_token).await {
+                match crate::modules::oauth::refresh_access_token(&token.refresh_token, Some(&token.account_id)).await {
                     Ok(token_response) => {
                         tracing::debug!("Token 刷新成功！");
 
@@ -1377,7 +1377,7 @@ impl TokenManager {
                 }
             }
 
-            return Ok((token.access_token, project_id, token.email, 0));
+            return Ok((token.access_token, project_id, token.email, token.account_id, 0));
         }
 
         Err(last_error.unwrap_or_else(|| "All accounts failed".to_string()))
@@ -1465,7 +1465,7 @@ impl TokenManager {
     pub async fn get_token_by_email(
         &self,
         email: &str,
-    ) -> Result<(String, String, String, u64), String> {
+    ) -> Result<(String, String, String, String, u64), String> {
         // 查找账号信息
         let token_info = {
             let mut found = None;
@@ -1504,13 +1504,13 @@ impl TokenManager {
 
         // 检查是否过期 (提前5分钟)
         if now < timestamp + expires_in - 300 {
-            return Ok((current_access_token, project_id, email.to_string(), 0));
+            return Ok((current_access_token, project_id, email.to_string(), account_id, 0));
         }
 
         tracing::info!("[Warmup] Token for {} is expiring, refreshing...", email);
 
         // 调用 OAuth 刷新 token
-        match crate::modules::oauth::refresh_access_token(&refresh_token).await {
+        match crate::modules::oauth::refresh_access_token(&refresh_token, Some(&account_id)).await {
             Ok(token_response) => {
                 tracing::info!("[Warmup] Token refresh successful for {}", email);
                 let new_now = chrono::Utc::now().timestamp();
@@ -1531,6 +1531,7 @@ impl TokenManager {
                     token_response.access_token,
                     project_id,
                     email.to_string(),
+                    account_id,
                     0,
                 ))
             }
@@ -1782,7 +1783,7 @@ impl TokenManager {
 
         // 2. 调用配额刷新 API
         tracing::info!("账号 {} 正在实时刷新配额...", email);
-        match crate::modules::quota::fetch_quota(&access_token, email).await {
+        match crate::modules::quota::fetch_quota(&access_token, email, Some(&account_id)).await {
             Ok((quota_data, _project_id)) => {
                 // 3. 从最新配额中提取 reset_time
                 let earliest_reset = quota_data
@@ -2003,17 +2004,17 @@ impl TokenManager {
         refresh_token: &str,
     ) -> Result<crate::modules::oauth::UserInfo, String> {
         // 先获取 Access Token
-        let token = crate::modules::oauth::refresh_access_token(refresh_token)
+        let token = crate::modules::oauth::refresh_access_token(refresh_token, None)
             .await
             .map_err(|e| format!("刷新 Access Token 失败: {}", e))?;
 
-        crate::modules::oauth::get_user_info(&token.access_token).await
+        crate::modules::oauth::get_user_info(&token.access_token, None).await
     }
 
     /// 添加新账号 (纯后端实现，不依赖 Tauri AppHandle)
     pub async fn add_account(&self, email: &str, refresh_token: &str) -> Result<(), String> {
         // 1. 获取 Access Token (验证 refresh_token 有效性)
-        let token_info = crate::modules::oauth::refresh_access_token(refresh_token)
+        let token_info = crate::modules::oauth::refresh_access_token(refresh_token, None)
             .await
             .map_err(|e| format!("Invalid refresh token: {}", e))?;
 

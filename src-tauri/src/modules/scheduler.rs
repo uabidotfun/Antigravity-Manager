@@ -100,7 +100,7 @@ pub fn start_scheduler(app_handle: Option<tauri::AppHandle>, proxy_state: crate:
                 };
 
                 // Get fresh quota
-                let Ok((fresh_quota, _)) = quota::fetch_quota_with_cache(&token, &account.email, Some(&pid)).await else {
+                let Ok((fresh_quota, _)) = quota::fetch_quota_with_cache(&token, &account.email, Some(&pid), Some(&account.id)).await else {
                     continue;
                 };
 
@@ -132,6 +132,7 @@ pub fn start_scheduler(app_handle: Option<tauri::AppHandle>, proxy_state: crate:
                         }
 
                         warmup_tasks.push((
+                            account.id.clone(),
                             account.email.clone(),
                             model_to_ping.clone(),
                             token.clone(),
@@ -186,8 +187,9 @@ pub fn start_scheduler(app_handle: Option<tauri::AppHandle>, proxy_state: crate:
                     for (batch_idx, batch) in warmup_tasks.chunks(batch_size).enumerate() {
                         let mut handles = Vec::new();
                         
-                        for (task_idx, (email, model, token, pid, pct, history_key)) in batch.iter().enumerate() {
+                        for (task_idx, (id, email, model, token, pid, pct, history_key)) in batch.iter().enumerate() {
                             let global_idx = batch_idx * batch_size + task_idx + 1;
+                            let id = id.clone();
                             let email = email.clone();
                             let model = model.clone();
                             let token = token.clone();
@@ -201,7 +203,7 @@ pub fn start_scheduler(app_handle: Option<tauri::AppHandle>, proxy_state: crate:
                             ));
                             
                             let handle = tokio::spawn(async move {
-                                let result = quota::warmup_model_directly(&token, &model, &pid, &email, pct).await;
+                                let result = quota::warmup_model_directly(&token, &model, &pid, &email, pct, Some(&id)).await;
                                 (result, history_key)
                             });
                             handles.push(handle);
@@ -270,7 +272,7 @@ pub async fn trigger_warmup_for_account(account: &Account) {
     };
 
     // Get quota info (prefer cache as refresh command likely just updated disk/cache)
-    let Ok((fresh_quota, _)) = quota::fetch_quota_with_cache(&token, &account.email, Some(&pid)).await else {
+    let Ok((fresh_quota, _)) = quota::fetch_quota_with_cache(&token, &account.email, Some(&pid), Some(&account.id)).await else {
         return;
     };
 
@@ -331,7 +333,7 @@ pub async fn trigger_warmup_for_account(account: &Account) {
                 model, account.email
             ));
 
-            let success = quota::warmup_model_directly(&token, &model, &pid, &account.email, pct).await;
+            let success = quota::warmup_model_directly(&token, &model, &pid, &account.email, pct, Some(&account.id)).await;
 
             // Only record history if warmup was successful
             if success {

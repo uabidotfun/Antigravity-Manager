@@ -182,6 +182,8 @@ pub struct AxumServer {
     pub cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>,
     pub is_running: Arc<RwLock<bool>>,
     pub token_manager: Arc<TokenManager>, // [NEW] 暴露出 TokenManager 供反代服务复用
+    pub proxy_pool_state: Arc<tokio::sync::RwLock<crate::proxy::config::ProxyPoolConfig>>, // [NEW] 代理池配置状态
+    pub proxy_pool_manager: Arc<crate::proxy::proxy_pool::ProxyPoolManager>, // [NEW] 暴露代理池管理器供命令调用
 }
 
 impl AxumServer {
@@ -198,6 +200,13 @@ impl AxumServer {
         let mut proxy = self.proxy_state.write().await;
         *proxy = new_config;
         tracing::info!("上游代理配置已热更新");
+    }
+
+    /// 更新代理池配置
+    pub async fn update_proxy_pool(&self, new_config: crate::proxy::config::ProxyPoolConfig) {
+        let mut pool = self.proxy_pool_state.write().await;
+        *pool = new_config;
+        tracing::info!("代理池配置已热更新");
     }
 
     pub async fn update_security(&self, config: &crate::proxy::config::ProxyConfig) {
@@ -251,11 +260,18 @@ impl AxumServer {
         monitor: Arc<crate::proxy::monitor::ProxyMonitor>,
         experimental_config: crate::proxy::config::ExperimentalConfig,
         debug_logging: crate::proxy::config::DebugLoggingConfig,
+
         integration: crate::modules::integration::SystemManager,
         cloudflared_state: Arc<crate::commands::cloudflared::CloudflaredState>,
+        proxy_pool_config: crate::proxy::config::ProxyPoolConfig, // [NEW]
     ) -> Result<(Self, tokio::task::JoinHandle<()>), String> {
         let custom_mapping_state = Arc::new(tokio::sync::RwLock::new(custom_mapping));
         let proxy_state = Arc::new(tokio::sync::RwLock::new(upstream_proxy.clone()));
+        let proxy_pool_state = Arc::new(tokio::sync::RwLock::new(proxy_pool_config));
+        let proxy_pool_manager = crate::proxy::proxy_pool::init_global_proxy_pool(proxy_pool_state.clone());
+    
+    // Start health check loop
+    proxy_pool_manager.clone().start_health_check_loop();
         let security_state = Arc::new(RwLock::new(security_config));
         let zai_state = Arc::new(RwLock::new(zai_config));
         let provider_rr = Arc::new(AtomicUsize::new(0));
@@ -273,9 +289,10 @@ impl AxumServer {
             )),
             upstream_proxy: proxy_state.clone(),
             upstream: {
-                let u = Arc::new(crate::proxy::upstream::client::UpstreamClient::new(Some(
-                    upstream_proxy.clone(),
-                )));
+                let u = Arc::new(crate::proxy::upstream::client::UpstreamClient::new(
+                    Some(upstream_proxy.clone()),
+                    Some(proxy_pool_manager.clone()),
+                ));
                 // 初始化 User-Agent 覆盖
                 if user_agent_override.is_some() {
                     u.set_user_agent_override(user_agent_override).await;
@@ -617,6 +634,8 @@ impl AxumServer {
             cloudflared_state,
             is_running: is_running_state,
             token_manager: token_manager.clone(),
+            proxy_pool_state,
+            proxy_pool_manager,
         };
 
         // 在新任务中启动服务器

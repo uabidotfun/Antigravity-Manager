@@ -95,7 +95,7 @@ pub async fn handle_generate(
         let session_id = SessionManager::extract_gemini_session_id(&body, &model_name);
 
         // 关键：在重试尝试 (attempt > 0) 时强制轮换账号
-        let (access_token, project_id, email, _wait_ms) = match token_manager.get_token(&config.request_type, attempt > 0, Some(&session_id), &config.final_model).await {
+        let (access_token, project_id, email, account_id, _wait_ms) = match token_manager.get_token(&config.request_type, attempt > 0, Some(&session_id), &config.final_model).await {
             Ok(t) => t,
             Err(e) => {
                 return Err((StatusCode::SERVICE_UNAVAILABLE, format!("Token error: {}", e)));
@@ -128,7 +128,7 @@ pub async fn handle_generate(
         let upstream_method = if is_stream { "streamGenerateContent" } else { "generateContent" };
 
         let response = match upstream
-            .call_v1_internal(upstream_method, &access_token, wrapped_body, query_string)
+            .call_v1_internal(upstream_method, &access_token, wrapped_body, query_string, Some(account_id.as_str()))
             .await {
                 Ok(r) => r,
                 Err(e) => {
@@ -455,7 +455,7 @@ pub async fn handle_get_model(Path(model_name): Path<String>) -> impl IntoRespon
 
 pub async fn handle_count_tokens(State(state): State<AppState>, Path(_model_name): Path<String>, Json(_body): Json<Value>) -> Result<impl IntoResponse, (StatusCode, String)> {
     let model_group = "gemini";
-    let (_access_token, _project_id, _, _wait_ms) = state.token_manager.get_token(model_group, false, None, "gemini").await
+    let (_access_token, _project_id, _, _, _wait_ms) = state.token_manager.get_token(model_group, false, None, "gemini").await
         .map_err(|e| (StatusCode::SERVICE_UNAVAILABLE, format!("Token error: {}", e)))?;
     
     Ok(Json(json!({"totalTokens": 0})))

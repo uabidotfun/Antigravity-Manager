@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 use serde::{Serialize, Deserialize};
-use crate::proxy::{ProxyConfig, TokenManager};
+use crate::proxy::{ProxyConfig, ProxyPoolConfig, TokenManager};
 use tokio::time::Duration;
 use crate::proxy::monitor::{ProxyMonitor, ProxyRequestLog, ProxyStats};
 
@@ -231,6 +231,7 @@ pub async fn ensure_admin_server(
             config.debug_logging.clone(),
             integration.clone(),
             cloudflared_state,
+            config.proxy_pool.clone(),
         ).await {
             Ok((server, handle)) => (server, handle),
             Err(e) => return Err(format!("启动管理服务器失败: {}", e)),
@@ -727,6 +728,40 @@ pub async fn clear_all_proxy_rate_limits(
     if let Some(instance) = instance_lock.as_ref() {
         instance.token_manager.clear_all_rate_limits();
         Ok(())
+    } else {
+        Err("服务未运行".to_string())
+    }
+}
+
+/// 触发所有代理的健康检查，并返回更新后的配置
+#[tauri::command]
+pub async fn check_proxy_health(
+    state: State<'_, ProxyServiceState>,
+) -> Result<ProxyPoolConfig, String> {
+    let instance_lock = state.instance.read().await;
+    if let Some(instance) = instance_lock.as_ref() {
+        let pool_state = instance.axum_server.proxy_pool_state.clone();
+        let manager = crate::proxy::proxy_pool::ProxyPoolManager::new(pool_state.clone());
+        
+        manager.health_check().await?;
+        
+        // Return the updated config from memory
+        let config = pool_state.read().await;
+        Ok(config.clone())
+    } else {
+        Err("服务未运行".to_string())
+    }
+}
+
+/// 获取当前内存中的代理池状态
+#[tauri::command]
+pub async fn get_proxy_pool_config(
+    state: State<'_, ProxyServiceState>,
+) -> Result<ProxyPoolConfig, String> {
+    let instance_lock = state.instance.read().await;
+    if let Some(instance) = instance_lock.as_ref() {
+        let config = instance.axum_server.proxy_pool_state.read().await;
+        Ok(config.clone())
     } else {
         Err("服务未运行".to_string())
     }

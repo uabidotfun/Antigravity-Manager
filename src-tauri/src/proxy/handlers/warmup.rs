@@ -71,11 +71,11 @@ pub async fn handle_warmup(
     );
 
     // ===== 步骤 1: 获取 Token =====
-    let (access_token, project_id) = if let (Some(at), Some(pid)) = (&req.access_token, &req.project_id) {
-        (at.clone(), pid.clone())
+    let (access_token, project_id, account_id) = if let (Some(at), Some(pid)) = (&req.access_token, &req.project_id) {
+        (at.clone(), pid.clone(), String::new())
     } else {
         match state.token_manager.get_token_by_email(&req.email).await {
-            Ok((at, pid, _, _wait_ms)) => (at, pid),
+            Ok((at, pid, _, acc_id, _wait_ms)) => (at, pid, acc_id),
             Err(e) => {
                 warn!(
                     "[Warmup-API] Step 1 FAILED: Token error for {}: {}",
@@ -191,14 +191,14 @@ pub async fn handle_warmup(
 
     let mut result = state
         .upstream
-        .call_v1_internal(method, &access_token, body.clone(), query)
+        .call_v1_internal(method, &access_token, body.clone(), query, Some(account_id.as_str()))
         .await;
 
     // 如果流式请求失败，尝试非流式请求
     if result.is_err() && !prefer_non_stream {
         result = state
             .upstream
-            .call_v1_internal("generateContent", &access_token, body, None)
+            .call_v1_internal("generateContent", &access_token, body, None, Some(account_id.as_str()))
             .await;
     }
 

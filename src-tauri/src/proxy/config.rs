@@ -433,6 +433,10 @@ pub struct ProxyConfig {
     /// 控制如何处理 AI 深度思考时的 Token 预算
     #[serde(default)]
     pub thinking_budget: ThinkingBudgetConfig,
+
+    /// 代理池配置
+    #[serde(default)]
+    pub proxy_pool: ProxyPoolConfig,
 }
 
 /// 上游代理配置
@@ -467,6 +471,7 @@ impl Default for ProxyConfig {
             user_agent_override: None,
             saved_user_agent: None,
             thinking_budget: ThinkingBudgetConfig::default(),
+            proxy_pool: ProxyPoolConfig::default(),
         }
     }
 }
@@ -502,4 +507,72 @@ impl ProxyConfig {
             "127.0.0.1"
         }
     }
+}
+
+
+/// 代理认证信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyAuth {
+    pub username: String,
+    #[serde(serialize_with = "crate::utils::crypto::serialize_password", deserialize_with = "crate::utils::crypto::deserialize_password")]
+    pub password: String,
+}
+
+/// 单个代理配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyEntry {
+    pub id: String,                    // 唯一标识
+    pub name: String,                  // 显示名称
+    pub url: String,                   // 代理地址 (http://, https://, socks5://)
+    pub auth: Option<ProxyAuth>,       // 认证信息 (可选)
+    pub enabled: bool,                 // 是否启用
+    pub priority: i32,                 // 优先级 (数字越小优先级越高)
+    pub tags: Vec<String>,             // 标签 (如 "美国", "住宅IP")
+    pub max_accounts: Option<usize>,   // 最大绑定账号数 (0 = 无限制)
+    pub health_check_url: Option<String>, // 健康检查 URL
+    pub last_check_time: Option<i64>,  // 上次检查时间
+    pub is_healthy: bool,              // 健康状态
+    pub latency: Option<u64>,          // 延迟 (毫秒) [NEW]
+}
+
+/// 代理池配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyPoolConfig {
+    pub enabled: bool,                 // 是否启用代理池
+    // pub mode: ProxyPoolMode,        // [REMOVED] 代理池模式，统一为 Hybrid 逻辑
+    pub proxies: Vec<ProxyEntry>,      // 代理列表
+    pub health_check_interval: u64,    // 健康检查间隔 (秒)
+    pub auto_failover: bool,           // 自动故障转移
+    pub strategy: ProxySelectionStrategy, // 代理选择策略
+}
+
+impl Default for ProxyPoolConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            // mode: ProxyPoolMode::Global,
+            proxies: Vec::new(),
+            health_check_interval: 300,
+            auto_failover: true,
+            strategy: ProxySelectionStrategy::Priority,
+        }
+    }
+}
+
+
+
+/// 代理选择策略
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxySelectionStrategy {
+    /// 轮询: 依次使用
+    RoundRobin,
+    /// 随机: 随机选择
+    Random,
+    /// 优先级: 按 priority 字段排序
+    Priority,
+    /// 最少连接: 选择当前使用最少的代理
+    LeastConnections,
+    /// 加权轮询: 根据健康状态和优先级
+    WeightedRoundRobin,
 }

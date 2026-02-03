@@ -151,7 +151,7 @@ pub async fn handle_chat_completions(
 
         // 4. 获取 Token (使用准确的 request_type)
         // 关键：在重试尝试 (attempt > 0) 时强制轮换账号
-        let (access_token, project_id, email, _wait_ms) = match token_manager
+        let (access_token, project_id, email, account_id, _wait_ms) = match token_manager
             .get_token(
                 &config.request_type,
                 attempt > 0,
@@ -218,7 +218,7 @@ pub async fn handle_chat_completions(
         let query_string = if actual_stream { Some("alt=sse") } else { None };
 
         let response = match upstream
-            .call_v1_internal(method, &access_token, gemini_body, query_string)
+            .call_v1_internal(method, &access_token, gemini_body, query_string, Some(account_id.as_str()))
             .await
         {
             Ok(r) => r,
@@ -1022,7 +1022,7 @@ pub async fn handle_completions(
         // 重试时强制轮换，除非只是简单的网络抖动但 Claude 逻辑里 attempt > 0 总是 force_rotate
         let force_rotate = attempt > 0;
 
-        let (access_token, project_id, email, _wait_ms) = match token_manager
+        let (access_token, project_id, email, account_id, _wait_ms) = match token_manager
             .get_token(
                 &config.request_type,
                 force_rotate,
@@ -1070,7 +1070,7 @@ pub async fn handle_completions(
         let query_string = if list_response { Some("alt=sse") } else { None };
 
         let response = match upstream
-            .call_v1_internal(method, &access_token, gemini_body, query_string)
+            .call_v1_internal(method, &access_token, gemini_body, query_string, Some(account_id.as_str()))
             .await
         {
             Ok(r) => r,
@@ -1497,7 +1497,7 @@ pub async fn handle_images_generations(
     let upstream = state.upstream.clone();
     let token_manager = state.token_manager;
 
-    let (access_token, project_id, email, _wait_ms) = match token_manager
+    let (access_token, project_id, email, account_id, _wait_ms) = match token_manager
         .get_token("image_gen", false, None, "dall-e-3")
         .await
     {
@@ -1524,6 +1524,7 @@ pub async fn handle_images_generations(
         let _response_format = response_format.to_string();
 
         let model_to_use = "gemini-3-pro-image".to_string();
+        let account_id = account_id.clone();
 
         tasks.push(tokio::spawn(async move {
             let gemini_body = json!({
@@ -1552,7 +1553,7 @@ pub async fn handle_images_generations(
             });
 
             match upstream
-                .call_v1_internal("generateContent", &access_token, gemini_body, None)
+                .call_v1_internal("generateContent", &access_token, gemini_body, None, Some(account_id.as_str()))
                 .await
             {
                 Ok(response) => {
@@ -1770,7 +1771,7 @@ pub async fn handle_images_edits(
     // 1. Get Upstream & Token
     let upstream = state.upstream.clone();
     let token_manager = state.token_manager;
-    let (access_token, project_id, email, _wait_ms) = match token_manager
+    let (access_token, project_id, email, account_id, _wait_ms) = match token_manager
         .get_token("image_gen", false, None, "dall-e-3")
         .await
     {
@@ -1884,10 +1885,11 @@ pub async fn handle_images_edits(
         let upstream = upstream.clone();
         let access_token = access_token.clone();
         let body = gemini_body.clone();
+        let account_id = account_id.clone();
 
         tasks.push(tokio::spawn(async move {
             match upstream
-                .call_v1_internal("generateContent", &access_token, body, None)
+                .call_v1_internal("generateContent", &access_token, body, None, Some(account_id.as_str()))
                 .await
             {
                 Ok(response) => {

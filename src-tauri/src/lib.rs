@@ -370,6 +370,8 @@ pub fn run() {
             commands::proxy::generate_api_key,
             commands::proxy::reload_proxy_accounts,
             commands::proxy::update_model_mapping,
+            commands::proxy::check_proxy_health,
+            commands::proxy::get_proxy_pool_config,
             commands::proxy::fetch_zai_models,
             commands::proxy::get_proxy_scheduling_config,
             commands::proxy::update_proxy_scheduling_config,
@@ -378,6 +380,12 @@ pub fn run() {
             commands::proxy::get_preferred_account,
             commands::proxy::clear_proxy_rate_limit,
             commands::proxy::clear_all_proxy_rate_limits,
+            commands::proxy::check_proxy_health,
+            // Proxy Pool Binding commands
+            commands::proxy_pool::bind_account_proxy,
+            commands::proxy_pool::unbind_account_proxy,
+            commands::proxy_pool::get_account_proxy_binding,
+            commands::proxy_pool::get_all_account_bindings,
             // Autostart commands
             commands::autostart::toggle_auto_launch,
             commands::autostart::is_auto_launch_enabled,

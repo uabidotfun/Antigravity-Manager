@@ -22,6 +22,7 @@ export interface ProxyConfig {
     user_agent_override?: string;
     saved_user_agent?: string;
     thinking_budget?: ThinkingBudgetConfig;
+    proxy_pool?: ProxyPoolConfig;
 }
 
 // ============================================================================
@@ -144,4 +145,41 @@ export interface CloudflaredStatus {
     running: boolean;
     url?: string;
     error?: string;
+}
+
+// ============================================================================
+// 代理池类型定义
+// ============================================================================
+
+export interface ProxyAuth {
+    username: string;
+    password?: string;
+}
+
+export interface ProxyEntry {
+    id: string;
+    name: string;
+    url: string;
+    auth?: ProxyAuth;
+    enabled: boolean;
+    priority: number;
+    tags: string[];
+    max_accounts?: number;
+    health_check_url?: string;
+    last_check_time?: number;
+    is_healthy: boolean;
+    latency?: number; // [NEW] 延迟 (毫秒)
+}
+
+// export type ProxyPoolMode = 'global' | 'per_account' | 'hybrid'; // [REMOVED]
+
+export type ProxySelectionStrategy = 'round_robin' | 'random' | 'priority' | 'least_connections' | 'weighted_round_robin';
+
+export interface ProxyPoolConfig {
+    enabled: boolean;
+    // mode: ProxyPoolMode; // [REMOVED]
+    proxies: ProxyEntry[];
+    health_check_interval: number;
+    auto_failover: boolean;
+    strategy: ProxySelectionStrategy;
 }

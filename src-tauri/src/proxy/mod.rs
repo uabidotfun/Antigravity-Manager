@@ -22,6 +22,7 @@ pub mod session_manager; // 会话指纹管理
 pub mod signature_cache; // Signature Cache (v3.3.16)
 pub mod sticky_config; // 粘性调度配置
 pub mod upstream; // 上游客户端
+pub mod proxy_pool; // 代理池管理器
 pub mod zai_vision_mcp; // Built-in Vision MCP server state
 pub mod zai_vision_tools; // Built-in Vision MCP tools (z.ai vision API) // 调试日志
 
@@ -29,6 +30,7 @@ pub use config::get_thinking_budget_config;
 pub use config::update_thinking_budget_config;
 pub use config::ProxyAuthMode;
 pub use config::ProxyConfig;
+pub use config::ProxyPoolConfig;
 pub use config::ThinkingBudgetConfig;
 pub use config::ThinkingBudgetMode;
 pub use config::ZaiConfig;

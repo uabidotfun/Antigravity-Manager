@@ -11,6 +11,8 @@ pub mod autostart;
 pub mod cloudflared;
 // 导出 security 命令 (IP 监控)
 pub mod security;
+// 导出 proxy_pool 命令
+pub mod proxy_pool;
 
 /// 列出所有账号
 #[tauri::command]
@@ -357,8 +359,10 @@ pub async fn save_config(
         instance.axum_server.update_debug_logging(&config.proxy).await;
         // [NEW] 更新 User-Agent 配置
         instance.axum_server.update_user_agent(&config.proxy).await;
-        // [NEW] 更新 Thinking Budget 配置
+        // 更新 Thinking Budget 配置
         crate::proxy::update_thinking_budget_config(config.proxy.thinking_budget.clone());
+        // 更新代理池配置
+        instance.axum_server.update_proxy_pool(config.proxy.proxy_pool.clone()).await;
         // 更新熔断配置
         instance.token_manager.update_circuit_breaker_config(config.circuit_breaker.clone()).await;
         tracing::debug!("已同步热更新反代服务配置");

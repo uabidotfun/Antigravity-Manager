@@ -39,6 +39,12 @@ pub struct Account {
     pub protected_models: HashSet<String>,
     pub created_at: i64,
     pub last_used: i64,
+    /// 绑定的代理 ID (None = 使用全局代理池)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_id: Option<String>,
+    /// 代理绑定时间
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proxy_bound_at: Option<i64>,
 }
 
 impl Account {
@@ -61,6 +67,8 @@ impl Account {
             protected_models: HashSet::new(),
             created_at: now,
             last_used: now,
+            proxy_id: None,
+            proxy_bound_at: None,
         }
     }
 

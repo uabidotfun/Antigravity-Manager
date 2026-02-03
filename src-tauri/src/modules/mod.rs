@@ -33,6 +33,6 @@ pub use config::*;
 pub use logger::*;
 // pub use device::*;
 
-pub async fn fetch_quota(access_token: &str, email: &str) -> crate::error::AppResult<(models::QuotaData, Option<String>)> {
-    quota::fetch_quota(access_token, email).await
+pub async fn fetch_quota(access_token: &str, email: &str, account_id: Option<&str>) -> crate::error::AppResult<(models::QuotaData, Option<String>)> {
+    quota::fetch_quota(access_token, email, account_id).await
 }
