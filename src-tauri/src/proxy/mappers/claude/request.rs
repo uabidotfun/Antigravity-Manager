@@ -773,11 +773,6 @@ fn has_valid_signature_for_function_calls(
 }
 
 /// 构建 System Instruction (支持动态身份映射与 Prompt 隔离)
-///
-/// [TRANSPARENT PROXY MODE] 如果客户端 (Kilo Code, Claude Code, etc.) 已发送 system prompt,
-/// 则直接透传，不再注入 Antigravity 身份前缀。这避免了两个身份竞争导致模型困惑、
-/// 以及额外消耗 tokens 的问题。仅当客户端未发送任何 system prompt 时，
-/// 才使用 Antigravity 身份作为 fallback。
 fn build_system_instruction(
     system: &Option<SystemPrompt>,
     _model_name: &str,
@@ -785,50 +780,57 @@ fn build_system_instruction(
 ) -> Option<Value> {
     let mut parts = Vec::new();
 
-    // [KEPT FOR FALLBACK] Antigravity 身份指令 — 仅在客户端未发送 system prompt 时使用
+    // [NEW] Antigravity 身份指令 (原始简化版)
     let antigravity_identity = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.\n\
     You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.\n\
     **Absolute paths only**\n\
     **Proactiveness**";
 
-    // [TRANSPARENT PROXY] 检测客户端是否已提供 system prompt
-    let client_has_system_prompt = match system {
-        Some(SystemPrompt::String(text)) => !text.trim().is_empty(),
-        Some(SystemPrompt::Array(blocks)) => blocks.iter().any(|b| b.block_type == "text" && !b.text.trim().is_empty()),
-        None => false,
-    };
-
-    if client_has_system_prompt {
-        // ====== 透明模式: 客户端已提供 system prompt, 直接透传 ======
-        // 不再注入 "You are Antigravity..." 前缀, 让客户端的身份 (Kilo Code 等) 完整传递给模型
-        tracing::debug!(
-            "[System-Instruction] Transparent mode: client provided system prompt, passing through without Antigravity identity injection"
-        );
-
-        if let Some(sys) = system {
-            match sys {
-                SystemPrompt::String(text) => {
-                    parts.push(json!({"text": text}));
+    // [HYBRID] 检查用户是否已提供 Antigravity 身份
+    let mut user_has_antigravity = false;
+    if let Some(sys) = system {
+        match sys {
+            SystemPrompt::String(text) => {
+                if text.contains("You are Antigravity") {
+                    user_has_antigravity = true;
                 }
-                SystemPrompt::Array(blocks) => {
-                    for block in blocks {
-                        if block.block_type == "text" {
-                            parts.push(json!({"text": block.text}));
-                        }
+            }
+            SystemPrompt::Array(blocks) => {
+                for block in blocks {
+                    if block.block_type == "text" && block.text.contains("You are Antigravity") {
+                        user_has_antigravity = true;
+                        break;
                     }
                 }
             }
         }
-    } else {
-        // ====== Fallback 模式: 客户端未提供 system prompt, 使用 Antigravity 身份 ======
-        tracing::debug!(
-            "[System-Instruction] Fallback mode: no client system prompt, injecting Antigravity identity"
-        );
-        parts.push(json!({"text": antigravity_identity}));
-        parts.push(json!({"text": "\n--- [SYSTEM_PROMPT_END] ---"}));
     }
 
-    // [KEPT] MCP XML Bridge: 如果存在 mcp__ 开头的工具，注入专用的调用协议
+    // 如果用户没有提供 Antigravity 身份,则注入
+    if !user_has_antigravity {
+        parts.push(json!({"text": antigravity_identity}));
+    }
+
+    // 添加用户的系统提示词
+    if let Some(sys) = system {
+        match sys {
+            SystemPrompt::String(text) => {
+                // [MODIFIED] No longer filter "You are an interactive CLI tool"
+                // We pass everything through to ensure Flash/Lite models get full instructions
+                parts.push(json!({"text": text}));
+            }
+            SystemPrompt::Array(blocks) => {
+                for block in blocks {
+                    if block.block_type == "text" {
+                        // [MODIFIED] No longer filter "You are an interactive CLI tool"
+                        parts.push(json!({"text": block.text}));
+                    }
+                }
+            }
+        }
+    }
+
+    // [NEW] MCP XML Bridge: 如果存在 mcp__ 开头的工具，注入专用的调用协议
     // 这能有效规避部分 MCP 链路在标准的 tool_use 协议下解析不稳的问题
     if has_mcp_tools {
         let mcp_xml_prompt = "\n\
@@ -839,6 +841,11 @@ fn build_system_instruction(
         3) 这种方式具有更高的连通性和容错性，适用于大型结果返回场景。\n\
         ===========================================";
         parts.push(json!({"text": mcp_xml_prompt}));
+    }
+
+    // 如果用户没有提供任何系统提示词,添加结束标记
+    if !user_has_antigravity {
+        parts.push(json!({"text": "\n--- [SYSTEM_PROMPT_END] ---"}));
     }
 
     Some(json!({

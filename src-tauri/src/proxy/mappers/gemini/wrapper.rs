@@ -297,30 +297,39 @@ pub fn wrap_request(
             }
         }
     } else {
-        // [TRANSPARENT PROXY] Antigravity 身份指令 — 仅在客户端未发送 system prompt 时作为 fallback
+        // [NEW] 只在非图像生成模式下注入 Antigravity 身份 (原始简化版)
         let antigravity_identity = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.\n\
         You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.\n\
         **Absolute paths only**\n\
         **Proactiveness**";
 
+        // [HYBRID] 检查是否已有 systemInstruction
         if let Some(system_instruction) = inner_request.get_mut("systemInstruction") {
-            // ====== 透明模式: 客户端已提供 systemInstruction, 仅补全 role 字段 ======
-            // 不再注入 "You are Antigravity..." 前缀
-            tracing::debug!(
-                "[Gemini-Wrap] Transparent mode: client provided systemInstruction, passing through without Antigravity identity injection"
-            );
-
-            // [KEPT] 补全 role: user (Gemini API 需要)
+            // [NEW] 补全 role: user
             if let Some(obj) = system_instruction.as_object_mut() {
                 if !obj.contains_key("role") {
                     obj.insert("role".to_string(), json!("user"));
                 }
             }
+
+            if let Some(parts) = system_instruction.get_mut("parts") {
+                if let Some(parts_array) = parts.as_array_mut() {
+                    // 检查第一个 part 是否已包含 Antigravity 身份
+                    let has_antigravity = parts_array
+                        .get(0)
+                        .and_then(|p| p.get("text"))
+                        .and_then(|t| t.as_str())
+                        .map(|s| s.contains("You are Antigravity"))
+                        .unwrap_or(false);
+
+                    if !has_antigravity {
+                        // 在前面插入 Antigravity 身份
+                        parts_array.insert(0, json!({"text": antigravity_identity}));
+                    }
+                }
+            }
         } else {
-            // ====== Fallback 模式: 没有 systemInstruction, 使用 Antigravity 身份 ======
-            tracing::debug!(
-                "[Gemini-Wrap] Fallback mode: no systemInstruction provided, injecting Antigravity identity"
-            );
+            // 没有 systemInstruction,创建一个新的
             inner_request["systemInstruction"] = json!({
                 "role": "user",
                 "parts": [{"text": antigravity_identity}]
@@ -520,10 +529,16 @@ mod tests {
             .unwrap();
         let parts = sys.get("parts").unwrap().as_array().unwrap();
 
-        // [TRANSPARENT PROXY] Should have only 1 part: User's prompt (no Antigravity injection)
-        assert_eq!(parts.len(), 1);
+        // Should have 2 parts: Antigravity + User
+        assert_eq!(parts.len(), 2);
+        assert!(parts[0]
+            .get("text")
+            .unwrap()
+            .as_str()
+            .unwrap()
+            .contains("You are Antigravity"));
         assert_eq!(
-            parts[0].get("text").unwrap().as_str().unwrap(),
+            parts[1].get("text").unwrap().as_str().unwrap(),
             "User custom prompt"
         );
     }

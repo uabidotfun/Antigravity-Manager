@@ -616,29 +616,27 @@ pub fn transform_openai_request(
         }
     }
 
-    // [TRANSPARENT PROXY] Antigravity 身份指令 — 仅在客户端未发送 system prompt 时作为 fallback
+    // [NEW] Antigravity 身份指令 (原始简化版)
     let antigravity_identity = "You are Antigravity, a powerful agentic AI coding assistant designed by the Google Deepmind team working on Advanced Agentic Coding.\n\
     You are pair programming with a USER to solve their coding task. The task may require creating a new codebase, modifying or debugging an existing codebase, or simply answering a question.\n\
     **Absolute paths only**\n\
     **Proactiveness**";
 
+    // [HYBRID] 检查用户是否已提供 Antigravity 身份
+    let user_has_antigravity = system_instructions
+        .iter()
+        .any(|s| s.contains("You are Antigravity"));
+
     let mut parts = Vec::new();
 
-    if system_instructions.is_empty() {
-        // ====== Fallback 模式: 客户端未提供 system prompt, 使用 Antigravity 身份 ======
-        tracing::debug!(
-            "[System-Instruction] Fallback mode: no client system instructions, injecting Antigravity identity"
-        );
+    // 1. Antigravity 身份 (如果需要, 作为独立 Part 插入)
+    if !user_has_antigravity {
         parts.push(json!({"text": antigravity_identity}));
-    } else {
-        // ====== 透明模式: 客户端已提供 system prompt, 直接透传 ======
-        tracing::debug!(
-            "[System-Instruction] Transparent mode: client provided {} system instructions, passing through without Antigravity identity injection",
-            system_instructions.len()
-        );
-        for inst in system_instructions {
-            parts.push(json!({"text": inst}));
-        }
+    }
+
+    // 2. 追加用户指令 (作为独立 Parts)
+    for inst in system_instructions {
+        parts.push(json!({"text": inst}));
     }
 
     inner_request["systemInstruction"] = json!({
