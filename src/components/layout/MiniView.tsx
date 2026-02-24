@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Maximize2, RefreshCw, Clock, ShieldAlert, Tag, Activity } from 'lucide-react';
+import { Maximize2, RefreshCw, ShieldAlert, Tag } from 'lucide-react';
 import { useViewStore } from '../../stores/useViewStore';
 import { useAccountStore } from '../../stores/useAccountStore';
 import { isTauri } from '../../utils/env';
@@ -7,23 +7,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
-import { formatTimeRemaining, formatCompactNumber } from '../../utils/format';
+import { formatTimeRemaining } from '../../utils/format';
 import { enterMiniMode, exitMiniMode } from '../../utils/windowManager';
 import { getVersion } from '@tauri-apps/api/app';
-import { listen } from '@tauri-apps/api/event';
 
 import { useConfigStore } from '../../stores/useConfigStore';
-
-interface ProxyRequestLog {
-    id: string;
-    model?: string;
-    input_tokens?: number;
-    output_tokens?: number;
-    timestamp: number;
-    status: number;
-    duration: number;
-    mapped_model?: string
-}
 
 export default function MiniView() {
     const { setMiniView } = useViewStore();
@@ -33,30 +21,6 @@ export default function MiniView() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const [appVersion, setAppVersion] = useState('0.0.0');
-    const [latestLog, setLatestLog] = useState<ProxyRequestLog | null>(null);
-
-    // Subscribe to proxy logs
-    useEffect(() => {
-        let unlistenFn: (() => void) | null = null;
-
-        const setupListener = async () => {
-            if (!isTauri()) return;
-            try {
-                unlistenFn = await listen<ProxyRequestLog>('proxy://request', (event) => {
-                    console.log(event)
-                    setLatestLog(event.payload);
-                });
-            } catch (e) {
-                console.error('Failed to setup log listener:', e);
-            }
-        };
-
-        setupListener();
-
-        return () => {
-            if (unlistenFn) unlistenFn();
-        };
-    }, []);
 
     // Get app version
     useEffect(() => {
@@ -291,49 +255,13 @@ export default function MiniView() {
                     )}
                 </div>
 
-                {/* Footer Status / Latest Log */}
+                {/* Footer Status */}
                 <div className="flex-none h-8 bg-gray-50 dark:bg-black/20 flex items-center justify-between px-3 text-[10px] text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-white/5 overflow-hidden">
-                    {latestLog ? (
-                        <motion.div
-                            key={latestLog.id}
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="flex items-center w-full gap-2"
-                        >
-                            <span title={latestLog.status.toString()} className={`w-1.5 h-1.5 rounded-full ${latestLog.status >= 200 && latestLog.status < 400 ? 'bg-emerald-500' : 'bg-red-500'}`}></span>
-                            <span className="font-bold truncate max-w-[100px]" title={latestLog.model}>
-                                {latestLog.mapped_model || latestLog.model}
-                            </span>
-
-                            <div className="flex-1 flex items-center justify-end gap-2">
-                                <div className="flex items-center gap-1.5 text-[9px]" title="Input/Output Tokens">
-                                    <Activity size={10} className="text-blue-500" />
-                                    <span className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
-                                        I:<span className="font-mono text-gray-900 dark:text-gray-200">{formatCompactNumber(latestLog.input_tokens || 0)}</span>
-                                    </span>
-                                    <span className="text-gray-300 dark:text-gray-600">/</span>
-                                    <span className="flex items-center gap-0.5 text-gray-500 dark:text-gray-400">
-                                        O:<span className="font-mono text-gray-900 dark:text-gray-200">{formatCompactNumber(latestLog.output_tokens || 0)}</span>
-                                    </span>
-                                </div>
-
-                                <div className="w-px h-2.5 bg-gray-300 dark:bg-white/10" />
-
-                                <div className="flex items-center gap-0.5" title="Duration">
-                                    <Clock size={10} className="text-gray-400" />
-                                    <span className="font-mono">{(latestLog.duration / 1000).toFixed(2)}s</span>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ) : (
-                        <>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                <span>Connected</span>
-                            </div>
-                            <span className="font-mono opacity-50">v{appVersion}</span>
-                        </>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>Connected</span>
+                    </div>
+                    <span className="font-mono opacity-50">v{appVersion}</span>
                 </div>
             </motion.div>
         </div>

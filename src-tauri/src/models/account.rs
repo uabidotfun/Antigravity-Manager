@@ -25,13 +25,13 @@ pub struct Account {
     /// Unix timestamp when the account was disabled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub disabled_at: Option<i64>,
-    /// User manually disabled proxy feature (does not affect app usage).
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default)]
     pub proxy_disabled: bool,
-    /// Optional human-readable reason for proxy disabling.
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_disabled_reason: Option<String>,
-    /// Unix timestamp when the proxy was disabled.
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_disabled_at: Option<i64>,
     /// 受配额保护禁用的模型列表 [NEW #621]
@@ -51,10 +51,10 @@ pub struct Account {
     pub validation_url: Option<String>,
     pub created_at: i64,
     pub last_used: i64,
-    /// 绑定的代理 ID (None = 使用全局代理池)
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_id: Option<String>,
-    /// 代理绑定时间
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub proxy_bound_at: Option<i64>,
     /// 用户自定义标签

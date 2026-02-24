@@ -14,7 +14,6 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'refresh_account_quota': { url: '/api/accounts/:accountId/quota', method: 'GET' },
   'refresh_all_quotas': { url: '/api/accounts/refresh', method: 'POST' },
   'reorder_accounts': { url: '/api/accounts/reorder', method: 'POST' },
-  'toggle_proxy_status': { url: '/api/accounts/:accountId/toggle-proxy', method: 'POST' },
   'warm_up_accounts': { url: '/api/accounts/warmup', method: 'POST' },
   'warm_up_all_accounts': { url: '/api/accounts/warmup', method: 'POST' },
   'warm_up_account': { url: '/api/accounts/:accountId/warmup', method: 'POST' },
@@ -30,29 +29,9 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'delete_device_version': { url: '/api/accounts/:accountId/device-versions/:versionId', method: 'DELETE' },
   'open_device_folder': { url: '/api/system/open-folder', method: 'POST' },
 
-  // Proxy Control & Status
-  'get_proxy_status': { url: '/api/proxy/status', method: 'GET' },
-  'start_proxy_service': { url: '/api/proxy/start', method: 'POST' },
-  'stop_proxy_service': { url: '/api/proxy/stop', method: 'POST' },
-  'update_model_mapping': { url: '/api/proxy/mapping', method: 'POST' },
-  'generate_api_key': { url: '/api/proxy/api-key/generate', method: 'POST' },
-  'clear_proxy_session_bindings': { url: '/api/proxy/session-bindings/clear', method: 'POST' },
-  'clear_proxy_rate_limit': { url: '/api/proxy/rate-limits/:accountId', method: 'DELETE' },
-  'clear_all_proxy_rate_limits': { url: '/api/proxy/rate-limits', method: 'DELETE' },
-  'check_proxy_health': { url: '/api/proxy/health-check/trigger', method: 'POST' },
-  'get_preferred_account': { url: '/api/proxy/preferred-account', method: 'GET' },
-  'set_preferred_account': { url: '/api/proxy/preferred-account', method: 'POST' },
-  'fetch_zai_models': { url: '/api/zai/models/fetch', method: 'POST' },
+  // Config
   'load_config': { url: '/api/config', method: 'GET' },
   'save_config': { url: '/api/config', method: 'POST' },
-  'get_proxy_stats': { url: '/api/proxy/stats', method: 'GET' },
-  'set_proxy_monitor_enabled': { url: '/api/proxy/monitor/toggle', method: 'POST' },
-
-  // Logs & Monitoring
-  'get_proxy_logs_filtered': { url: '/api/logs', method: 'GET' },
-  'get_proxy_logs_count_filtered': { url: '/api/logs/count', method: 'GET' },
-  'clear_proxy_logs': { url: '/api/logs/clear', method: 'POST' },
-  'get_proxy_log_detail': { url: '/api/logs/:logId', method: 'GET' },
 
   // Debug Console
   'enable_debug_console': { url: '/api/debug/enable', method: 'POST' },
@@ -60,32 +39,6 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'is_debug_console_enabled': { url: '/api/debug/enabled', method: 'GET' },
   'get_debug_console_logs': { url: '/api/debug/logs', method: 'GET' },
   'clear_debug_console_logs': { url: '/api/debug/logs/clear', method: 'POST' },
-
-  // CLI Sync
-  'get_cli_sync_status': { url: '/api/proxy/cli/status', method: 'POST' },
-  'execute_cli_sync': { url: '/api/proxy/cli/sync', method: 'POST' },
-  'execute_cli_restore': { url: '/api/proxy/cli/restore', method: 'POST' },
-  'get_cli_config_content': { url: '/api/proxy/cli/config', method: 'POST' },
-
-  // OpenCode Sync
-  'get_opencode_sync_status': { url: '/api/proxy/opencode/status', method: 'POST' },
-  'execute_opencode_sync': { url: '/api/proxy/opencode/sync', method: 'POST' },
-  'execute_opencode_restore': { url: '/api/proxy/opencode/restore', method: 'POST' },
-  'execute_opencode_clear': { url: '/api/proxy/opencode/clear', method: 'POST' },
-  'get_opencode_config_content': { url: '/api/proxy/opencode/config', method: 'POST' },
-
-  // Stats
-  'get_token_stats_hourly': { url: '/api/stats/token/hourly', method: 'GET' },
-  'get_token_stats_daily': { url: '/api/stats/token/daily', method: 'GET' },
-  'get_token_stats_weekly': { url: '/api/stats/token/weekly', method: 'GET' },
-  'get_token_stats_by_account': { url: '/api/stats/token/by-account', method: 'GET' },
-  'get_token_stats_summary': { url: '/api/stats/token/summary', method: 'GET' },
-  'get_token_stats_by_model': { url: '/api/stats/token/by-model', method: 'GET' },
-  'get_token_stats_model_trend_hourly': { url: '/api/stats/token/model-trend/hourly', method: 'GET' },
-  'get_token_stats_model_trend_daily': { url: '/api/stats/token/model-trend/daily', method: 'GET' },
-  'get_token_stats_account_trend_hourly': { url: '/api/stats/token/account-trend/hourly', method: 'GET' },
-  'get_token_stats_account_trend_daily': { url: '/api/stats/token/account-trend/daily', method: 'GET' },
-  'clear_token_stats': { url: '/api/stats/token/clear', method: 'POST' },
 
   // System
   'get_data_dir_path': { url: '/api/system/data-dir', method: 'GET' },
@@ -97,12 +50,6 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'save_http_api_settings': { url: '/api/system/http-api/settings', method: 'POST' },
   'get_antigravity_path': { url: '/api/system/antigravity/path', method: 'GET' },
   'get_antigravity_args': { url: '/api/system/antigravity/args', method: 'GET' },
-
-  // Cloudflared
-  'cloudflared_install': { url: '/api/proxy/cloudflared/install', method: 'POST' },
-  'cloudflared_start': { url: '/api/proxy/cloudflared/start', method: 'POST' },
-  'cloudflared_stop': { url: '/api/proxy/cloudflared/stop', method: 'POST' },
-  'cloudflared_get_status': { url: '/api/proxy/cloudflared/status', method: 'GET' },
 
   // Updates
   'should_check_updates': { url: '/api/system/updates/check-status', method: 'GET' },
@@ -127,38 +74,6 @@ const COMMAND_MAPPING: Record<string, { url: string; method: 'GET' | 'POST' | 'D
   'clear_antigravity_cache': { url: '/api/system/cache/clear', method: 'POST' },
   'get_antigravity_cache_paths': { url: '/api/system/cache/paths', method: 'GET' },
   'clear_log_cache': { url: '/api/system/logs/clear-cache', method: 'POST' },
-
-  // Security / IP Management
-  'get_ip_access_logs': { url: '/api/security/logs', method: 'GET' },
-  'clear_ip_access_logs': { url: '/api/security/logs/clear', method: 'POST' },
-  'get_ip_stats': { url: '/api/security/stats', method: 'GET' },
-  'get_ip_token_stats': { url: '/api/security/token-stats', method: 'GET' },
-  'get_ip_blacklist': { url: '/api/security/blacklist', method: 'GET' },
-  'add_ip_to_blacklist': { url: '/api/security/blacklist', method: 'POST' },
-  'remove_ip_from_blacklist': { url: '/api/security/blacklist', method: 'DELETE' },
-  'clear_ip_blacklist': { url: '/api/security/blacklist/clear', method: 'POST' },
-  'check_ip_in_blacklist': { url: '/api/security/blacklist/check', method: 'GET' },
-  'get_ip_whitelist': { url: '/api/security/whitelist', method: 'GET' },
-  'add_ip_to_whitelist': { url: '/api/security/whitelist', method: 'POST' },
-  'remove_ip_from_whitelist': { url: '/api/security/whitelist', method: 'DELETE' },
-  'clear_ip_whitelist': { url: '/api/security/whitelist/clear', method: 'POST' },
-  'check_ip_in_whitelist': { url: '/api/security/whitelist/check', method: 'GET' },
-  'get_security_config': { url: '/api/security/config', method: 'GET' },
-  'update_security_config': { url: '/api/security/config', method: 'POST' },
-  // User Tokens
-  'list_user_tokens': { url: '/api/user-tokens', method: 'GET' },
-  'get_user_token_summary': { url: '/api/user-tokens/summary', method: 'GET' },
-  'create_user_token': { url: '/api/user-tokens', method: 'POST' },
-  'renew_user_token': { url: '/api/user-tokens/:id/renew', method: 'POST' },
-  'delete_user_token': { url: '/api/user-tokens/:id', method: 'DELETE' },
-  'update_user_token': { url: '/api/user-tokens/:id', method: 'PATCH' },
-
-  // Proxy Pool (Web Mode Fix)
-  'get_proxy_pool_config': { url: '/api/proxy/pool/config', method: 'GET' },
-  'get_all_account_bindings': { url: '/api/proxy/pool/bindings', method: 'GET' },
-  'bind_account_proxy': { url: '/api/proxy/pool/bind', method: 'POST' },
-  'unbind_account_proxy': { url: '/api/proxy/pool/unbind', method: 'POST' },
-  'get_account_proxy_binding': { url: '/api/proxy/pool/binding/:accountId', method: 'GET' },
 };
 
 export async function request<T>(cmd: string, args?: any): Promise<T> {

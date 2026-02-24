@@ -15,14 +15,12 @@ interface AccountGridProps {
     onViewDetails: (accountId: string) => void;
     onExport: (accountId: string) => void;
     onDelete: (accountId: string) => void;
-    onToggleProxy: (accountId: string) => void;
-    onWarmup?: (accountId: string) => void;
     onUpdateLabel?: (accountId: string, label: string) => void;
     onViewError: (accountId: string) => void;
 }
 
 
-function AccountGrid({ accounts, selectedIds, refreshingIds, onToggleSelect, currentAccountId, switchingAccountId, onSwitch, onRefresh, onViewDetails, onExport, onDelete, onToggleProxy, onViewDevice, onWarmup, onUpdateLabel, onViewError }: AccountGridProps) {
+function AccountGrid({ accounts, selectedIds, refreshingIds, onToggleSelect, currentAccountId, switchingAccountId, onSwitch, onRefresh, onViewDetails, onExport, onDelete, onViewDevice, onUpdateLabel, onViewError }: AccountGridProps) {
     const { t } = useTranslation();
     if (accounts.length === 0) {
         return (
@@ -50,8 +48,6 @@ function AccountGrid({ accounts, selectedIds, refreshingIds, onToggleSelect, cur
                     onViewDetails={() => onViewDetails(account.id)}
                     onExport={() => onExport(account.id)}
                     onDelete={() => onDelete(account.id)}
-                    onToggleProxy={() => onToggleProxy(account.id)}
-                    onWarmup={onWarmup ? () => onWarmup(account.id) : undefined}
                     onUpdateLabel={onUpdateLabel ? (label: string) => onUpdateLabel(account.id, label) : undefined}
                     onViewError={() => onViewError(account.id)}
                 />

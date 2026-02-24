@@ -157,24 +157,11 @@ async fn check_updater_json() -> Result<UpdateInfo, String> {
 }
 
 async fn create_client() -> Result<reqwest::Client, String> {
-    let mut builder = reqwest::Client::builder()
+    let builder = reqwest::Client::builder()
         .user_agent("Antigravity-Manager")
         .timeout(std::time::Duration::from_secs(10));
 
-    // Load config to check for upstream proxy
-    if let Ok(config) = crate::modules::config::load_app_config() {
-        if config.proxy.upstream_proxy.enabled && !config.proxy.upstream_proxy.url.is_empty() {
-            logger::log_info(&format!("Update checker using upstream proxy: {}", config.proxy.upstream_proxy.url));
-            match reqwest::Proxy::all(&config.proxy.upstream_proxy.url) {
-                Ok(proxy) => {
-                    builder = builder.proxy(proxy);
-                },
-                Err(e) => {
-                    logger::log_warn(&format!("Failed to parse proxy URL '{}': {}", config.proxy.upstream_proxy.url, e));
-                }
-            }
-        }
-    }
+    // deprecated: 反代功能已移除，不再从配置读取上游代理
 
     builder.build().map_err(|e| format!("Failed to create HTTP client: {}", e))
 }

@@ -23,9 +23,9 @@ impl AccountService {
         let user_info = modules::oauth::get_user_info(&token_res.access_token, Some(&temp_account_id)).await?;
 
         // 3. 获取项目 ID (尝试)
-        let project_id = crate::proxy::project_resolver::fetch_project_id(&token_res.access_token)
-            .await
-            .ok();
+        let (project_id, _) = crate::modules::quota::fetch_project_id(
+            &token_res.access_token, &user_info.email, Some(&temp_account_id)
+        ).await;
 
         // 4. 构造 TokenData
         let token = TokenData::new(
@@ -152,9 +152,9 @@ impl AccountService {
         let temp_account_id = uuid::Uuid::new_v4().to_string();
         
         let user_info = modules::oauth::get_user_info(&token_res.access_token, Some(&temp_account_id)).await?;
-        let project_id = crate::proxy::project_resolver::fetch_project_id(&token_res.access_token)
-            .await
-            .ok();
+        let (project_id, _) = crate::modules::quota::fetch_project_id(
+            &token_res.access_token, &user_info.email, Some(&temp_account_id)
+        ).await;
 
         let token_data = crate::models::TokenData::new(
             token_res.access_token,

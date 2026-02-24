@@ -838,8 +838,7 @@ pub fn delete_account(account_id: &str) -> Result<(), String> {
             .map_err(|e| format!("failed_to_delete_account_file: {}", e))?;
     }
 
-    // [FIX #1477] Trigger TokenManager cache cleanup signal
-    crate::proxy::server::trigger_account_delete(account_id);
+    // deprecated: 反代功能已移除，TokenManager 缓存清理不再需要
 
     Ok(())
 }
@@ -868,8 +867,7 @@ pub fn delete_accounts(account_ids: &[String]) -> Result<(), String> {
             let _ = fs::remove_file(&account_path);
         }
 
-        // [FIX #1477] Trigger TokenManager cache cleanup signal
-        crate::proxy::server::trigger_account_delete(account_id);
+        // deprecated: 反代功能已移除，TokenManager 缓存清理不再需要
     }
 
     // If current account is empty, use first one as default
@@ -1198,13 +1196,11 @@ pub fn update_account_quota(account_id: &str, quota: QuotaData) -> Result<(), St
                 let mut group_min_percentage: HashMap<String, i32> = HashMap::new();
 
                 for model in &q.models {
-                    if let Some(std_id) =
-                        crate::proxy::common::model_mapping::normalize_to_standard_id(&model.name)
-                    {
-                        let entry = group_min_percentage.entry(std_id).or_insert(100);
-                        if model.percentage < *entry {
-                            *entry = model.percentage;
-                        }
+                    // deprecated: 反代已移除，直接使用模型原始名称作为分组键
+                    let std_id = model.name.clone();
+                    let entry = group_min_percentage.entry(std_id).or_insert(100);
+                    if model.percentage < *entry {
+                        *entry = model.percentage;
                     }
                 }
 
@@ -1266,9 +1262,7 @@ pub fn update_account_quota(account_id: &str, quota: QuotaData) -> Result<(), St
         }
     }
 
-    // [FIX] Trigger TokenManager account reload signal
-    // This ensures in-memory protected_models are updated
-    crate::proxy::server::trigger_account_reload(account_id);
+    // deprecated: 反代功能已移除，内存状态同步不再需要
 
     Ok(())
 }
@@ -1361,7 +1355,7 @@ pub async fn fetch_quota_with_retry(account: &mut Account) -> crate::error::AppR
                 account.disabled_at = Some(chrono::Utc::now().timestamp());
                 account.disabled_reason = Some(format!("invalid_grant: {}", e));
                 let _ = save_account(account);
-                crate::proxy::server::trigger_account_reload(&account.id);
+                // deprecated: 反代功能已移除
             }
             return Err(AppError::OAuth(e));
         }
@@ -1461,7 +1455,7 @@ pub async fn fetch_quota_with_retry(account: &mut Account) -> crate::error::AppR
                             account.disabled_at = Some(chrono::Utc::now().timestamp());
                             account.disabled_reason = Some(format!("invalid_grant: {}", e));
                             let _ = save_account(account);
-                            crate::proxy::server::trigger_account_reload(&account.id);
+                            // deprecated: 反代功能已移除
                         }
                         return Err(AppError::OAuth(e));
                     }
@@ -1639,49 +1633,10 @@ pub async fn refresh_all_quotas_logic() -> Result<RefreshStats, String> {
         elapsed.as_millis()
     ));
 
-    // After quota refresh, immediately check and trigger warmup for recovered models
-    tokio::spawn(async {
-        check_and_trigger_warmup_for_recovered_models().await;
-    });
-
     Ok(RefreshStats {
         total,
         success,
         failed,
         details,
     })
-}
-
-/// Check and trigger warmup for models that have recovered to 100%
-/// Called automatically after quota refresh to enable immediate warmup
-pub async fn check_and_trigger_warmup_for_recovered_models() {
-    let accounts = match list_accounts() {
-        Ok(acc) => acc,
-        Err(_) => return,
-    };
-
-    // Load config to check if scheduled warmup is enabled
-    let app_config = match crate::modules::config::load_app_config() {
-        Ok(cfg) => cfg,
-        Err(_) => return,
-    };
-
-    if !app_config.scheduled_warmup.enabled {
-        return;
-    }
-
-    crate::modules::logger::log_info(&format!(
-        "[Warmup] Checking {} accounts for recovered models after quota refresh...",
-        accounts.len()
-    ));
-
-    for account in accounts {
-        // Skip disabled accounts
-        if account.disabled || account.proxy_disabled {
-            continue;
-        }
-
-        // Trigger warmup check for this account
-        crate::modules::scheduler::trigger_warmup_for_account(&account).await;
-    }
 }

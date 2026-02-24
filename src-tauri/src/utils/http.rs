@@ -1,49 +1,32 @@
-use crate::modules::config::load_app_config;
 use once_cell::sync::Lazy;
-use rquest::{Client, Proxy};
+use rquest::Client;
 use rquest_util::Emulation;
 
-/// Global shared HTTP client (15s timeout)
-/// Client has a built-in connection pool; cloning it is light and shares the pool
+/// 全局共享 HTTP 客户端（15s 超时）
+/// Client 内置连接池，clone 是轻量操作
 pub static SHARED_CLIENT: Lazy<Client> = Lazy::new(|| create_base_client(15));
 
-/// Global shared HTTP client (Long timeout: 60s, for warmup etc.)
+/// 全局共享 HTTP 客户端（长超时: 60s）
 pub static SHARED_CLIENT_LONG: Lazy<Client> = Lazy::new(|| create_base_client(60));
 
-/// Base client creation logic
+/// 基础客户端创建逻辑
 fn create_base_client(timeout_secs: u64) -> Client {
-    let mut builder = Client::builder()
+    let builder = Client::builder()
         .emulation(Emulation::Chrome123)
         .timeout(std::time::Duration::from_secs(timeout_secs));
 
-    if let Ok(config) = load_app_config() {
-        let proxy_config = config.proxy.upstream_proxy;
-        if proxy_config.enabled && !proxy_config.url.is_empty() {
-            match Proxy::all(&proxy_config.url) {
-                Ok(proxy) => {
-                    builder = builder.proxy(proxy);
-                    tracing::info!(
-                        "HTTP shared client enabled upstream proxy: {}",
-                        proxy_config.url
-                    );
-                }
-                Err(e) => {
-                    tracing::error!("invalid_proxy_url: {}, error: {}", proxy_config.url, e);
-                }
-            }
-        }
-    }
+    // deprecated: 反代功能已移除，不再从配置读取上游代理
 
     tracing::info!("Initialized JA3/TLS Impersonation (Chrome123)");
     builder.build().unwrap_or_else(|_| Client::new())
 }
 
-/// Get uniformly configured HTTP client (15s timeout)
+/// 获取统一配置的 HTTP 客户端（15s 超时）
 pub fn get_client() -> Client {
     SHARED_CLIENT.clone()
 }
 
-/// Get long timeout HTTP client (60s timeout)
+/// 获取长超时 HTTP 客户端（60s 超时）
 pub fn get_long_client() -> Client {
     SHARED_CLIENT_LONG.clone()
 }

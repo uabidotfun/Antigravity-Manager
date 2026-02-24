@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, Github, User, MessageCircle, ExternalLink, RefreshCw, Heart, Coffee, LayoutDashboard, Users, Network, Activity, BarChart3, Settings as SettingsIcon, Lock, CheckCircle2, Globe, Send } from 'lucide-react';
+import { Save, Github, User, MessageCircle, ExternalLink, RefreshCw, Heart, Coffee, LayoutDashboard, Users, Settings as SettingsIcon, CheckCircle2, Send } from 'lucide-react';
 import { request as invoke } from '../utils/request';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useConfigStore } from '../stores/useConfigStore';
@@ -16,14 +16,13 @@ import { isTauri } from '../utils/env';
 import { relaunch } from '@tauri-apps/plugin-process';
 
 import DebugConsole from '../components/debug/DebugConsole';
-import ProxyPoolSettings from '../components/settings/ProxyPoolSettings';
 
 
 function Settings() {
     const { t, i18n } = useTranslation();
     const { config, loadConfig, saveConfig, updateLanguage, updateTheme } = useConfigStore();
     const { enable, disable, isEnabled } = useDebugConsole();
-    const [activeTab, setActiveTab] = useState<'general' | 'account' | 'proxy' | 'advanced' | 'debug' | 'about'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'account' | 'advanced' | 'debug' | 'about'>('general');
     const [formData, setFormData] = useState<AppConfig>({
         language: 'zh',
         theme: 'system',
@@ -31,30 +30,6 @@ function Settings() {
         refresh_interval: 15,
         auto_sync: false,
         sync_interval: 5,
-        proxy: {
-            enabled: false,
-            port: 8080,
-            api_key: '',
-            auto_start: false,
-            request_timeout: 120,
-            enable_logging: false,
-            upstream_proxy: {
-                enabled: false,
-                url: ''
-            },
-            debug_logging: {
-                enabled: false,
-                output_dir: undefined
-            } as { enabled: boolean; output_dir?: string },
-            proxy_pool: {
-                enabled: false,
-                proxies: [],
-                health_check_interval: 300,
-                auto_failover: true,
-                strategy: 'priority',
-                account_bindings: {}
-            }
-        },
         scheduled_warmup: {
             enabled: false,
             monitored_models: []
@@ -67,18 +42,7 @@ function Settings() {
         pinned_quota_models: {
             models: ['gemini-3-pro-high', 'gemini-3-flash', 'gemini-3-pro-image', 'claude-opus-4-6-thinking']
         },
-        cloudflared: {
-            enabled: false,
-            mode: 'quick',
-            port: 7860,
-            use_http2: true
-        },
-        circuit_breaker: {
-            enabled: false,
-            backoff_steps: [30, 60, 120, 300, 600]
-        },
-        hidden_menu_items: [],  // 菜单显示设置：默认不隐藏任何菜单项
-
+        hidden_menu_items: [],
     });
 
     // Dialog state
@@ -154,22 +118,9 @@ function Settings() {
 
     const handleSave = async () => {
         try {
-            // 校验：如果启用了上游代理但没有填写地址，给出提示
-            const proxyEnabled = formData.proxy?.upstream_proxy?.enabled;
-            const proxyUrl = formData.proxy?.upstream_proxy?.url?.trim();
-            if (proxyEnabled && !proxyUrl) {
-                showToast(t('proxy.config.upstream_proxy.validation_error'), 'error');
-                return;
-            }
-
             // 强制开启后台自动刷新，确保联动逻辑生效
             await saveConfig({ ...formData, auto_refresh: true });
             showToast(t('common.saved'), 'success');
-
-            // 如果修改了代理配置，提示用户需要重启
-            if (proxyEnabled && proxyUrl) {
-                showToast(t('proxy.config.upstream_proxy.restart_hint'), 'info');
-            }
         } catch (error) {
             showToast(`${t('common.error')}: ${error}`, 'error');
         }
@@ -218,30 +169,6 @@ function Settings() {
             });
             if (selected && typeof selected === 'string') {
                 setFormData({ ...formData, antigravity_executable: selected });
-            }
-        } catch (error) {
-            showToast(`${t('common.error')}: ${error}`, 'error');
-        }
-    };
-
-    const handleSelectDebugLogDir = async () => {
-        try {
-            const selected = await open({
-                directory: true,
-                multiple: false,
-                title: t('settings.advanced.debug_log_dir_select'),
-            });
-            if (selected && typeof selected === 'string') {
-                setFormData({
-                    ...formData,
-                    proxy: {
-                        ...formData.proxy,
-                        debug_logging: {
-                            enabled: formData.proxy?.debug_logging?.enabled ?? false,
-                            output_dir: selected,
-                        },
-                    },
-                });
             }
         } catch (error) {
             showToast(`${t('common.error')}: ${error}`, 'error');
@@ -372,15 +299,6 @@ function Settings() {
                             onClick={() => setActiveTab('account')}
                         >
                             {t('settings.tabs.account')}
-                        </button>
-                        <button
-                            className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'proxy'
-                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
-                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                                }`}
-                            onClick={() => setActiveTab('proxy')}
-                        >
-                            {t('settings.tabs.proxy')}
                         </button>
                         <button
                             className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${activeTab === 'advanced'
@@ -575,11 +493,6 @@ function Settings() {
                                         {[
                                             { path: '/', label: t('nav.dashboard'), icon: LayoutDashboard },
                                             { path: '/accounts', label: t('nav.accounts'), icon: Users },
-                                            { path: '/api-proxy', label: t('nav.proxy'), icon: Network },
-                                            { path: '/monitor', label: t('nav.call_records'), icon: Activity },
-                                            { path: '/token-stats', label: t('nav.token_stats'), icon: BarChart3 },
-                                            { path: '/user-token', label: t('nav.user_token', 'User Tokens'), icon: Users },
-                                            { path: '/security', label: t('nav.security'), icon: Lock },
                                             { path: '/settings', label: t('nav.settings'), icon: SettingsIcon },
                                         ].map((item) => {
                                             const hiddenItems = formData.hidden_menu_items || [];
@@ -995,84 +908,6 @@ function Settings() {
                                     </div>
                                 </div>
 
-
-
-                                <div className="border-t border-gray-200 dark:border-base-200 pt-4">
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-base-200 rounded-lg border border-gray-100 dark:border-base-300">
-                                            <div>
-                                                <div className="font-medium text-gray-900 dark:text-base-content">
-                                                    {t('settings.advanced.debug_logs_title')}
-                                                </div>
-                                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                                    {t('settings.advanced.debug_logs_enable_desc')}
-                                                </p>
-                                            </div>
-                                            <label className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={formData.proxy?.debug_logging?.enabled ?? false}
-                                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({
-                                                        ...formData,
-                                                        proxy: {
-                                                            ...formData.proxy,
-                                                            debug_logging: {
-                                                                enabled: e.target.checked,
-                                                                output_dir: formData.proxy?.debug_logging?.output_dir,
-                                                            },
-                                                        },
-                                                    })}
-                                                />
-                                                <div className="w-11 h-6 bg-gray-200 dark:bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                                            </label>
-                                        </div>
-                                        {(formData.proxy?.debug_logging?.enabled ?? false) && (
-                                            <>
-                                                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-lg p-3">
-                                                    <p className="text-sm text-amber-700 dark:text-amber-400">
-                                                        {t('settings.advanced.debug_logs_desc')}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-900 dark:text-base-content mb-1">
-                                                        {t('settings.advanced.debug_log_dir')}
-                                                    </label>
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type="text"
-                                                            className="flex-1 px-4 py-3 border border-gray-200 dark:border-base-300 rounded-lg bg-gray-50 dark:bg-base-200 text-gray-900 dark:text-base-content font-medium"
-                                                            value={formData.proxy?.debug_logging?.output_dir || ''}
-                                                            placeholder={`${dataDirPath.replace(/\/$/, '')}/debug_logs`}
-                                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({
-                                                                ...formData,
-                                                                proxy: {
-                                                                    ...formData.proxy,
-                                                                    debug_logging: {
-                                                                        enabled: formData.proxy?.debug_logging?.enabled ?? false,
-                                                                        output_dir: e.target.value || undefined,
-                                                                    },
-                                                                },
-                                                            })}
-                                                        />
-                                                        {isTauri() && (
-                                                            <button
-                                                                className="px-4 py-2 border border-gray-200 dark:border-base-300 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-base-200 transition-colors"
-                                                                onClick={handleSelectDebugLogDir}
-                                                            >
-                                                                {t('settings.advanced.select_btn')}
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                                                        {t('settings.advanced.debug_log_dir_hint', { path: dataDirPath.replace(/\/$/, '') })}
-                                                    </p>
-                                                </div>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
-
                             </div>
                         </>
                     )}
@@ -1122,118 +957,6 @@ function Settings() {
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    )}
-
-                    {/* 代理设置 */}
-                    {activeTab === 'proxy' && (
-                        <div className="space-y-4 animate-in fade-in duration-300">
-                            <ProxyPoolSettings
-                                config={formData.proxy?.proxy_pool || {
-                                    enabled: false,
-                                    proxies: [],
-                                    health_check_interval: 300,
-                                    auto_failover: true,
-                                    strategy: 'priority'
-                                }}
-                                onChange={(newConfig, silent = false) => {
-                                    const updatedFormData = {
-                                        ...formData,
-                                        proxy: {
-                                            ...formData.proxy,
-                                            proxy_pool: newConfig
-                                        }
-                                    };
-                                    setFormData(updatedFormData);
-
-                                    // [FIX] Silent updates (like health polling) should NOT trigger saveConfig
-                                    // to prevent race conditions where old memory state rolls back new manual changes
-                                    if (silent) {
-                                        console.log('Proxy status sync (silent)');
-                                        return;
-                                    }
-
-                                    // Hot reload: save immediately for manual changes
-                                    saveConfig({ ...updatedFormData, auto_refresh: true })
-                                        .then(() => {
-                                            console.log('Proxy config saved');
-                                        })
-                                        .catch(err => console.error('Save failed:', err));
-                                }}
-                            />
-
-                            {/* [FIX #1701] 恢复全局上游代理设置 */}
-                            <div className="group bg-white dark:bg-base-100 rounded-xl p-5 border border-gray-100 dark:border-base-200 hover:border-blue-200 transition-all duration-300 shadow-sm relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 -mr-12 -mt-12 rounded-full blur-2xl group-hover:bg-blue-500/10 transition-colors"></div>
-                                <div className="flex items-center justify-between mb-5 relative z-10">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300 shadow-sm">
-                                            <Globe size={18} />
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-gray-900 dark:text-gray-100 text-sm">{t('proxy.config.upstream_proxy.title')}</div>
-                                            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 leading-tight max-w-[280px]">
-                                                {t('proxy.config.upstream_proxy.desc_short')}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer scale-90">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={formData.proxy?.upstream_proxy?.enabled ?? false}
-                                            onChange={(e) => setFormData({
-                                                ...formData,
-                                                proxy: {
-                                                    ...formData.proxy,
-                                                    upstream_proxy: {
-                                                        ...formData.proxy?.upstream_proxy,
-                                                        enabled: e.target.checked
-                                                    }
-                                                }
-                                            })}
-                                        />
-                                        <div className="w-11 h-6 bg-gray-200 dark:bg-base-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500 shadow-inner"></div>
-                                    </label>
-                                </div>
-
-                                {formData.proxy?.upstream_proxy?.enabled && (
-                                    <div className="space-y-4 animate-in slide-in-from-top-2 duration-300 relative z-10">
-                                        <div className="pt-4 border-t border-gray-50 dark:border-base-300">
-                                            <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-2.5">
-                                                {t('proxy.config.upstream_proxy.url')}
-                                            </label>
-                                            <div className="relative group/input">
-                                                <input
-                                                    type="text"
-                                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-base-200 border border-gray-100 dark:border-base-300 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none text-sm font-medium transition-all shadow-inner"
-                                                    placeholder={t('proxy.config.upstream_proxy.url_placeholder')}
-                                                    value={formData.proxy?.upstream_proxy?.url || ''}
-                                                    onChange={(e) => setFormData({
-                                                        ...formData,
-                                                        proxy: {
-                                                            ...formData.proxy,
-                                                            upstream_proxy: {
-                                                                ...formData.proxy?.upstream_proxy,
-                                                                url: e.target.value
-                                                            }
-                                                        }
-                                                    })}
-                                                />
-                                            </div>
-                                            <div className="mt-4 bg-amber-50/40 dark:bg-amber-900/10 rounded-xl p-3.5 border border-amber-100/50 dark:border-amber-800/20 text-[11px] text-amber-700 dark:text-amber-400 flex items-start gap-3 transition-colors hover:bg-amber-50/60">
-                                                <div className="mt-0.5 p-1 bg-amber-100/80 dark:bg-amber-800/40 rounded-lg shadow-sm">
-                                                    <Network size={12} className="text-amber-600 dark:text-amber-400" />
-                                                </div>
-                                                <div className="leading-relaxed">
-                                                    <span className="font-bold mr-1.5 opacity-80 uppercase tracking-tighter">Tip:</span>
-                                                    {t('proxy.config.upstream_proxy.socks5h_hint')}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
                         </div>
                     )}
 

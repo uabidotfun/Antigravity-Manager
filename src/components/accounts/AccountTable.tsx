@@ -35,9 +35,6 @@ import {
     Diamond,
     Gem,
     Circle,
-    ToggleLeft,
-    ToggleRight,
-    Sparkles,
     Tag,
     X,
     Check,
@@ -69,8 +66,6 @@ interface AccountTableProps {
     onViewDetails: (accountId: string) => void;
     onExport: (accountId: string) => void;
     onDelete: (accountId: string) => void;
-    onToggleProxy: (accountId: string) => void;
-    onWarmup?: (accountId: string) => void;
     onUpdateLabel?: (accountId: string, label: string) => void;
     /** 拖拽排序回调，当用户完成拖拽时触发 */
     onReorder?: (accountIds: string[]) => void;
@@ -91,8 +86,6 @@ interface SortableRowProps {
     onViewDetails: () => void;
     onExport: () => void;
     onDelete: () => void;
-    onToggleProxy: () => void;
-    onWarmup?: () => void;
     onUpdateLabel?: (label: string) => void;
     onViewError: () => void;
 }
@@ -109,8 +102,6 @@ interface AccountRowContentProps {
     onViewDetails: () => void;
     onExport: () => void;
     onDelete: () => void;
-    onToggleProxy: () => void;
-    onWarmup?: () => void;
     onUpdateLabel?: (label: string) => void;
     onViewError: () => void;
 }
@@ -211,8 +202,6 @@ function SortableAccountRow({
     onViewDetails,
     onExport,
     onDelete,
-    onToggleProxy,
-    onWarmup,
     onUpdateLabel,
     onViewError,
 }: SortableRowProps) {
@@ -277,8 +266,6 @@ function SortableAccountRow({
                 onViewDetails={onViewDetails}
                 onExport={onExport}
                 onDelete={onDelete}
-                onToggleProxy={onToggleProxy}
-                onWarmup={onWarmup}
                 onUpdateLabel={onUpdateLabel}
                 onViewError={onViewError}
             />
@@ -302,8 +289,6 @@ function AccountRowContent({
     onViewDetails,
     onExport,
     onDelete,
-    onToggleProxy,
-    onWarmup,
     onUpdateLabel,
     onViewError,
 }: AccountRowContentProps) {
@@ -345,7 +330,8 @@ function AccountRowContent({
         (showAllQuotas
             ? (account.quota?.models || []).map(m => {
                 const config = MODEL_CONFIG[m.name.toLowerCase()];
-                const label = config?.i18nKey ? t(config.i18nKey) : (config?.shortLabel || config?.label || m.name);
+                // 直接使用 shortLabel 作为显示名称，不再依赖已删除的 i18n key
+                const label = config?.shortLabel || config?.label || m.name;
                 return {
                     id: m.name.toLowerCase(),
                     label: label,
@@ -356,7 +342,8 @@ function AccountRowContent({
             : pinnedModels.filter(modelId => MODEL_CONFIG[modelId]).map(modelId => {
                 const config = MODEL_CONFIG[modelId];
                 const aliases = getModelAliases(modelId);
-                const label = config.i18nKey ? t(config.i18nKey) : (config.shortLabel || config.label);
+                // 直接使用 shortLabel 作为显示名称，不再依赖已删除的 i18n key
+                const label = config.shortLabel || config.label;
                 return {
                     id: modelId,
                     label: label,
@@ -413,15 +400,6 @@ function AccountRowContent({
                             >
                                 <Ban className="w-2.5 h-2.5" />
                                 <span>{t('accounts.disabled')}</span>
-                            </span>
-                        )}
-
-                        {account.proxy_disabled && (
-                            <span
-                                className="px-2 py-0.5 rounded-md bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 text-[10px] font-bold flex items-center gap-1 shadow-sm border border-orange-200/50"
-                            >
-                                <Ban className="w-2.5 h-2.5" />
-                                <span>{t('accounts.proxy_disabled')}</span>
                             </span>
                         )}
 
@@ -579,7 +557,8 @@ function AccountRowContent({
                     : "bg-white dark:bg-base-100",
                 !isCurrent && "group-hover:bg-gray-50 dark:group-hover:bg-base-200"
             )}>
-                <div className="flex flex-wrap items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity max-w-[180px] mx-auto">
+                {/* 操作按钮容器：使用 flex-nowrap 避免按钮换行 */}
+                <div className="flex flex-nowrap items-center justify-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity mx-auto">
                     <button
                         className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-sky-600 dark:hover:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-900/30 rounded-lg transition-all"
                         onClick={(e) => { e.stopPropagation(); onViewDetails(); }}
@@ -617,16 +596,6 @@ function AccountRowContent({
                     >
                         <ArrowRightLeft className={`w-3.5 h-3.5 ${isSwitching ? 'animate-spin' : ''}`} />
                     </button>
-                    {onWarmup && (
-                        <button
-                            className={`p-1.5 text-gray-500 dark:text-gray-400 rounded-lg transition-all ${(isRefreshing || isDisabled) ? 'bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400 cursor-not-allowed' : 'hover:text-orange-500 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30'}`}
-                            onClick={(e) => { e.stopPropagation(); onWarmup(); }}
-                            title={isDisabled ? t('accounts.disabled_tooltip') : (isRefreshing ? t('common.loading') : t('accounts.warmup_this', '预热该账号'))}
-                            disabled={isRefreshing || isDisabled}
-                        >
-                            <Sparkles className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-pulse' : ''}`} />
-                        </button>
-                    )}
                     <button
                         className={`p-1.5 text-gray-500 dark:text-gray-400 rounded-lg transition-all ${(isRefreshing || isDisabled) ? 'bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400 cursor-not-allowed' : 'hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30'}`}
                         onClick={(e) => { e.stopPropagation(); onRefresh(); }}
@@ -641,22 +610,6 @@ function AccountRowContent({
                         title={t('common.export')}
                     >
                         <Download className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                        className={cn(
-                            "p-1.5 rounded-lg transition-all",
-                            account.proxy_disabled
-                                ? "text-gray-500 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/30"
-                                : "text-gray-500 dark:text-gray-400 hover:text-orange-600 dark:hover:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/30"
-                        )}
-                        onClick={(e) => { e.stopPropagation(); onToggleProxy(); }}
-                        title={account.proxy_disabled ? t('accounts.enable_proxy') : t('accounts.disable_proxy')}
-                    >
-                        {account.proxy_disabled ? (
-                            <ToggleRight className="w-3.5 h-3.5" />
-                        ) : (
-                            <ToggleLeft className="w-3.5 h-3.5" />
-                        )}
                     </button>
                     <button
                         className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
@@ -693,9 +646,7 @@ function AccountTable({
     onViewDetails,
     onExport,
     onDelete,
-    onToggleProxy,
     onReorder,
-    onWarmup,
     onUpdateLabel,
     onViewError,
 }: AccountTableProps) {
@@ -771,7 +722,7 @@ function AccountTable({
                                 {t('accounts.table.quota')}
                             </th>
                             <th className="px-2 py-1 text-left rtl:text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-[90px] whitespace-nowrap">{t('accounts.table.last_used')}</th>
-                            <th className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap sticky right-0 w-[180px] bg-gray-50 dark:bg-base-200 z-20 shadow-[-12px_0_12px_-12px_rgba(0,0,0,0.1)] dark:shadow-[-12px_0_12px_-12px_rgba(255,255,255,0.05)] text-center">{t('accounts.table.actions')}</th>
+                            <th className="px-2 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap sticky right-0 w-[260px] bg-gray-50 dark:bg-base-200 z-20 shadow-[-12px_0_12px_-12px_rgba(0,0,0,0.1)] dark:shadow-[-12px_0_12px_-12px_rgba(255,255,255,0.05)] text-center">{t('accounts.table.actions')}</th>
                         </tr >
                     </thead >
                     <SortableContext items={accountIds} strategy={verticalListSortingStrategy}>
@@ -792,8 +743,6 @@ function AccountTable({
                                     onViewDetails={() => onViewDetails(account.id)}
                                     onExport={() => onExport(account.id)}
                                     onDelete={() => onDelete(account.id)}
-                                    onToggleProxy={() => onToggleProxy(account.id)}
-                                    onWarmup={onWarmup ? () => onWarmup(account.id) : undefined}
                                     onUpdateLabel={onUpdateLabel ? (label: string) => onUpdateLabel(account.id, label) : undefined}
                                     onViewError={() => onViewError(account.id)}
                                 />
@@ -834,7 +783,6 @@ function AccountTable({
                                         onViewDetails={() => { }}
                                         onExport={() => { }}
                                         onDelete={() => { }}
-                                        onToggleProxy={() => { }}
                                         isDisabled={Boolean(activeAccount.disabled)}
                                         onViewError={() => { }}
                                     />
