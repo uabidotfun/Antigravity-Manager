@@ -19,10 +19,9 @@ export default function AccountErrorDialog({ account, onClose }: AccountErrorDia
 
     const isForbidden = !!account.quota?.is_forbidden;
     const isDisabled = Boolean(account.disabled);
-    const isProxyDisabled = account.proxy_disabled;
     const isValidationBlocked = account.validation_blocked;
 
-    const rawReason = account.validation_blocked_reason || account.disabled_reason || account.quota?.forbidden_reason || account.proxy_disabled_reason || '';
+    const rawReason = account.validation_blocked_reason || account.disabled_reason || account.quota?.forbidden_reason || '';
 
     // 深度解析解析错误消息
     const extractErrorMessage = (raw: string) => {
@@ -165,12 +164,6 @@ export default function AccountErrorDialog({ account, onClose }: AccountErrorDia
                             <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400 text-xs font-bold ring-1 ring-rose-200/50 dark:ring-rose-900/20">
                                 <Ban className="w-3 h-3" />
                                 {t('accounts.status.disabled')}
-                            </span>
-                        )}
-                        {isProxyDisabled && (
-                            <span className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 text-xs font-bold ring-1 ring-orange-200/50 dark:ring-orange-900/20">
-                                <Ban className="w-3 h-3" />
-                                {t('accounts.status.proxy_disabled')}
                             </span>
                         )}
                         {(isValidationBlocked || isVerificationNeeded) && (

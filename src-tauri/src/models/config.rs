@@ -14,49 +14,15 @@ pub struct AppConfig {
     pub antigravity_args: Option<Vec<String>>, // [NEW] Antigravity startup arguments
     #[serde(default)]
     pub auto_launch: bool,  // Launch on startup
+    /// deprecated: 反代预热功能已移除，保留字段以兼容旧配置反序列化
     #[serde(default)]
-    pub scheduled_warmup: ScheduledWarmupConfig, // [NEW] Scheduled warmup configuration
+    pub scheduled_warmup: serde_json::Value,
     #[serde(default)]
     pub quota_protection: QuotaProtectionConfig, // [NEW] Quota protection configuration
     #[serde(default)]
     pub pinned_quota_models: PinnedQuotaModelsConfig, // [NEW] Pinned quota models list
     #[serde(default)]
     pub hidden_menu_items: Vec<String>, // Hidden menu item path list
-}
-
-/// Scheduled warmup configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ScheduledWarmupConfig {
-    /// Whether smart warmup is enabled
-    pub enabled: bool,
-
-    /// List of models to warmup
-    #[serde(default = "default_warmup_models")]
-    pub monitored_models: Vec<String>,
-}
-
-fn default_warmup_models() -> Vec<String> {
-    vec![
-        "gemini-3-flash".to_string(),
-        "claude".to_string(),
-        "gemini-3-pro-high".to_string(),
-        "gemini-3-pro-image".to_string(),
-    ]
-}
-
-impl ScheduledWarmupConfig {
-    pub fn new() -> Self {
-        Self {
-            enabled: false,
-            monitored_models: default_warmup_models(),
-        }
-    }
-}
-
-impl Default for ScheduledWarmupConfig {
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 /// Quota protection configuration
@@ -142,7 +108,7 @@ impl AppConfig {
             antigravity_executable: None,
             antigravity_args: None,
             auto_launch: false,
-            scheduled_warmup: ScheduledWarmupConfig::default(),
+            scheduled_warmup: serde_json::Value::default(),
             quota_protection: QuotaProtectionConfig::default(),
             pinned_quota_models: PinnedQuotaModelsConfig::default(),
             hidden_menu_items: Vec::new(),

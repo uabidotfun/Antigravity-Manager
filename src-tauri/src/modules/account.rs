@@ -229,6 +229,7 @@ mod tests {
                     email: "user1@example.com".to_string(),
                     name: Some("User One".to_string()),
                     disabled: false,
+                    // deprecated: 反代功能已移除，字段保留仅为兼容旧数据
                     proxy_disabled: false,
                     protected_models: HashSet::new(),
                     created_at: now,
@@ -239,7 +240,8 @@ mod tests {
                     email: "user2@example.com".to_string(),
                     name: None,
                     disabled: true,
-                    proxy_disabled: true,
+                    // deprecated: 反代功能已移除，字段保留仅为兼容旧数据
+                    proxy_disabled: false,
                     protected_models: HashSet::new(),
                     created_at: now - 100,
                     last_used: now - 50,
@@ -263,14 +265,12 @@ mod tests {
         assert_eq!(acc1.email, "user1@example.com");
         assert_eq!(acc1.name, Some("User One".to_string()));
         assert!(!acc1.disabled);
-        assert!(!acc1.proxy_disabled);
-        
+
         // Check second account
         let acc2 = loaded.accounts.iter().find(|a| a.id == "acc-2").expect("acc-2 should exist");
         assert_eq!(acc2.email, "user2@example.com");
         assert_eq!(acc2.name, None);
         assert!(acc2.disabled);
-        assert!(acc2.proxy_disabled);
 
         println!("save_account_index roundtrip: successfully saved and loaded index with {} accounts", loaded.accounts.len());
     }
@@ -469,7 +469,8 @@ fn rebuild_index_from_accounts_in_dir(data_dir: &PathBuf) -> Result<AccountIndex
                                         email: account.email,
                                         name: account.name,
                                         disabled: account.disabled,
-                                        proxy_disabled: account.proxy_disabled,
+                                        // deprecated: 反代功能已移除，始终为 false
+                                        proxy_disabled: false,
                                         protected_models: account.protected_models,
                                         created_at: account.created_at,
                                         last_used: account.last_used,
@@ -714,7 +715,8 @@ pub fn add_account(
         email: account.email.clone(),
         name: account.name.clone(),
         disabled: account.disabled,
-        proxy_disabled: account.proxy_disabled,
+        // deprecated: 反代功能已移除，始终为 false
+        proxy_disabled: false,
         protected_models: account.protected_models.clone(),
         created_at: account.created_at,
         last_used: account.last_used,
@@ -1226,21 +1228,6 @@ pub fn update_account_quota(account_id: &str, quota: QuotaData) -> Result<(), St
                     }
                 }
 
-                // [Compatibility] Migrate from account-level to model-level protection if previously disabled for quota
-                if account.proxy_disabled
-                    && account
-                        .proxy_disabled_reason
-                        .as_ref()
-                        .map_or(false, |r| r == "quota_protection")
-                {
-                    crate::modules::logger::log_info(&format!(
-                        "[Quota] Migrating account {} from account-level to model-level protection",
-                        account.email
-                    ));
-                    account.proxy_disabled = false;
-                    account.proxy_disabled_reason = None;
-                    account.proxy_disabled_at = None;
-                }
             }
         }
     }
@@ -1263,42 +1250,6 @@ pub fn update_account_quota(account_id: &str, quota: QuotaData) -> Result<(), St
     }
 
     // deprecated: 反代功能已移除，内存状态同步不再需要
-
-    Ok(())
-}
-
-/// Toggle proxy disabled status for an account
-pub fn toggle_proxy_status(
-    account_id: &str,
-    enable: bool,
-    reason: Option<&str>,
-) -> Result<(), String> {
-    let _lock = ACCOUNT_INDEX_LOCK
-        .lock()
-        .map_err(|e| format!("failed_to_acquire_lock: {}", e))?;
-
-    let mut account = load_account(account_id)?;
-
-    account.proxy_disabled = !enable;
-    account.proxy_disabled_reason = if !enable {
-        reason.map(|s| s.to_string())
-    } else {
-        None
-    };
-    account.proxy_disabled_at = if !enable {
-        Some(chrono::Utc::now().timestamp())
-    } else {
-        None
-    };
-
-    save_account(&account)?;
-
-    // Also update index summary
-    let mut index = load_account_index()?;
-    if let Some(summary) = index.accounts.iter_mut().find(|a| a.id == account_id) {
-        summary.proxy_disabled = !enable;
-        save_account_index(&index)?;
-    }
 
     Ok(())
 }
@@ -1553,18 +1504,9 @@ pub async fn refresh_all_quotas_logic() -> Result<RefreshStats, String> {
     let tasks: Vec<_> = accounts
         .into_iter()
         .filter(|account| {
-            if account.disabled || account.proxy_disabled {
+            if account.disabled {
                 crate::modules::logger::log_info(&format!(
-                    "  - Skipping {} ({})",
-                    account.email,
-                    if account.disabled { "Disabled" } else { "Proxy Disabled" }
-                ));
-                return false;
-            }
-            // [FIX] Check proxy_disabled status
-            if account.proxy_disabled {
-                crate::modules::logger::log_info(&format!(
-                    "  - Skipping {} (Proxy Disabled)",
+                    "  - Skipping {} (Disabled)",
                     account.email
                 ));
                 return false;

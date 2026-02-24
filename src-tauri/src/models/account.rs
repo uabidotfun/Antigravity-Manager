@@ -117,6 +117,7 @@ pub struct AccountSummary {
     pub name: Option<String>,
     #[serde(default)]
     pub disabled: bool,
+    /// deprecated: 反代功能已移除，保留字段以兼容旧数据反序列化
     #[serde(default)]
     pub proxy_disabled: bool,
     /// 受保护的模型列表 [NEW] 供 UI 显示锁定图标

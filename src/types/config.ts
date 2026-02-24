@@ -1,3 +1,4 @@
+/** @deprecated 反代预热功能已移除，保留类型用于 serde 兼容 */
 export interface ScheduledWarmupConfig {
     enabled: boolean;
     monitored_models: string[];

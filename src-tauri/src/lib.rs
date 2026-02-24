@@ -261,7 +261,6 @@ pub fn run() {
             commands::save_update_settings,
             commands::should_check_updates,
             commands::update_last_check_time,
-            commands::toggle_proxy_status,
             // Autostart commands
             commands::autostart::toggle_auto_launch,
             commands::autostart::is_auto_launch_enabled,

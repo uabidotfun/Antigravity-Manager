@@ -9,8 +9,11 @@ export interface Account {
     disabled?: boolean;
     disabled_reason?: string;
     disabled_at?: number;
+    /** @deprecated 反代功能已移除 */
     proxy_disabled?: boolean;
+    /** @deprecated 反代功能已移除 */
     proxy_disabled_reason?: string;
+    /** @deprecated 反代功能已移除 */
     proxy_disabled_at?: number;
     protected_models?: string[];
     custom_label?: string;  // 用户自定义标签
